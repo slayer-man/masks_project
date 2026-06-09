@@ -1,0 +1,64 @@
+[project]
+name = "masks-project"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Andrey",email = "chistyakov.andrey.vladimirovic@gmail.com"}
+]
+requires-python = ">=3.15"
+dependencies = [
+    "requests (>=2.34.2,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+lint = [
+    "flake8 (>=7.3.0,<8.0.0)",
+    "mypy (>=2.1.0,<3.0.0)",
+    "black (>=26.5.1,<27.0.0)",
+    "isort (>=8.0.1,<9.0.0)"
+]
+
+[tool.mypy]
+# Запрет на объявление функции без аннотации типов
+disallow_untyped_defs = true
+#  Без этой опции аргументы функции могут иметь тип None в качестве параметра по умолчанию
+no_implicit_optional = true
+# Педупреждает, если в качестве возвращаемого типа было указано Any
+warn_return_any = true
+# Проверка корректности типизации в функции без аннотаций
+check_untyped_defs = true
+# Сообщает, если какой-то кусок кода никогда не выполняется
+warn_unreachable = true
+# Исключение папки .venv (виртуального окружения) из процесса проверки типов
+exclude = '.venv'
+
+[tool.black]
+# Максимальная длина строки
+line-length = 119
+# Файлы, которые не нужно форматировать
+exclude = '''
+(
+  /(
+      \.eggs         # Исключить несколько общих каталогов
+    | \.git          # в корне проекта
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | dist
+  )/
+  | foo.py           # Также отдельно исключить файл с именем foo.py
+                     # в корне проекта
+)
+'''
+
+[tool.isort]
+# максимальная длина строки
+line_length = 119
+# Стиль вывода для многострочных импортов
+multi_line_output = 3

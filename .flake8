@@ -1,0 +1,10 @@
+[flake8]
+# Максимальная длина строки
+max-line-length = 119
+#ignore = W503
+# Общее количество ошибок и предупреждений
+count = true
+# Не изменять кавычки в строках
+skip-string-normalization = true
+# Исключение директорий
+exclude = '.git, __pycache__, venv, .venv'
