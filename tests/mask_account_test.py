@@ -1,7 +1,9 @@
-account = input("Введите аккаунта:   ")
+from typing import Union
+
+account = str(input("Введите аккаунта:   "))
 
 
-def get_mask_account(account, number=2):
+def get_mask_account(account: Union[str], number: int = 2) -> Union[str, int]:
     """Функция заменяет часть строки на *"""
 
     if len(account) != 20:
@@ -9,12 +11,9 @@ def get_mask_account(account, number=2):
         return account
 
     else:
-        mask_account = "*" * number + account[-4:]
+        mask_account: str = "*" * number + account[-4:]
 
     return mask_account
 
-
-# Проверка
-# get_mask_account('00001234567812345678', 3)
 
 print("Номер аккаунта:   ", get_mask_account(account))
