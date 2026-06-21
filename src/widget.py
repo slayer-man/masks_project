@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 
 
 def mask_account_card(account_card: str) -> tuple:
@@ -17,3 +18,12 @@ def mask_account_card(account_card: str) -> tuple:
         card_number_str = " ".join(card_numbers)
         card_text_str = " ".join(card_text)
         return card_text_str, card_number_str
+
+
+def get_date(date_string: str) -> str:
+    """Преобразует строку даты из ISO формата в формат ДД.ММ.ГГГГ."""
+    # Шаблон %Y-%m-%dT%H:%M:%S.%f соответствует вашему формату "2024-03-11T02:26:18.671407"
+    date_obj = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S.%f")
+
+    # Форматируем объект datetime в нужный вид "11.03.2024"
+    return date_obj.strftime("%d.%m.%Y")
