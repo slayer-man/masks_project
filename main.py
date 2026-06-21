@@ -1,16 +1,13 @@
-from tests.test import *
-from tests.mask_test import get_mask_account, get_mask_card_number
+from src.masks import get_mask_account, get_mask_card_number
+from src.widget import mask_account_card
 
+card = str(input("Введите свой банковский аккаунт или номер карты: "))
 
-card_number = str(input("Введите номер банковской карты:   ").lower())
-
-account = str(input("Введите номер банковского счета:   ").lower())
-
-if __name__ == "__main__":
-
-    print(words, card_number)
-
-    #print("Номер банковской карты:   ", get_mask_card_number(card_number).upper())
-
-    #print("Номер банковского счета:   ", get_mask_account(mask_account).capitalize())
-
+if "Счет" in card:
+    text_part, number_part = mask_account_card(card)
+    masked_account = get_mask_account(number_part)
+    print(text_part, masked_account)
+else:
+    text_part, number_part = mask_account_card(card)
+    masked_card_number = get_mask_card_number(number_part)
+    print(text_part, masked_card_number)
