@@ -28,7 +28,7 @@ def sort_by_date(transactions: list, reverse: bool = True) -> list:
 
 if __name__ == "__main__":
 
-    # Тестовые данные
+# Тестовые данные
 
     test_data = [
         {"id": 41428829, "state": "EXECUTED", "date": "2019-07-03T18:35:29.512364"},
