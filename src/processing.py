@@ -11,19 +11,19 @@ def filter_by_state(my_list_dict: list, state: str = "EXECUTED") -> list[str]:
     return [my_dict for my_dict in my_list_dict if my_dict.get("state") == state]
 
 
-def sort_by_date(transactions: list, reverse: bool = True) -> list:
+def sort_by_date(date_sort: list, reverse: bool = True) -> list:
     """Сортирует список словарей по дате в ключе 'date'."""
 
-    def parse_date(date_string: str) -> datetime:
+    def parse_date(date_str: str) -> datetime:
         """Преобразует строку даты в формате ISO в объект datetime."""
 
-        return datetime.fromisoformat(date_string)
+        return datetime.fromisoformat(date_str)
 
     # Сортируем список, используя ключ — преобразованную дату; сохраняем порядок по параметру reverse
 
-    sorted_transactions = sorted(transactions, key=lambda x: parse_date(x["date"]), reverse=reverse)
+    sorted_date = sorted(date_sort, key=lambda x: parse_date(x["date"]), reverse=reverse)
 
-    return sorted_transactions
+    return sorted_date
 
 
 # Примеры использования и проверки функций
@@ -41,8 +41,8 @@ if __name__ == "__main__":
 
     print("Сортировка по убыванию (reverse=True):")
 
-    sorted_desc = sort_by_date(result_executed, reverse=True)
+    sorted_date = sort_by_date(result_executed, reverse=True)
 
-    for item in sorted_desc:
+    for item in sorted_date:
 
         print(item)
