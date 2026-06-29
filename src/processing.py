@@ -1,9 +1,10 @@
 from datetime import datetime
+
 from tests.tests_dict import my_list_dict
 
 
 def filter_by_state(my_list_dict: list, state: str = "EXECUTED") -> list[str]:
-    """Функция filter_by_state, которая принимает список словарей и опционально значение для ключа state (по умолчанию
+    """Функция, которая принимает список словарей и опционально значение для ключа state (по умолчанию
     'EXECUTED'). Функция возвращает новый список словарей, содержащий только те словари, у которых ключ state
     соответствует указанному значению."""
 
@@ -14,7 +15,7 @@ def sort_by_date(transactions: list, reverse: bool = True) -> list:
     """Сортирует список словарей по дате в ключе 'date'."""
 
     def parse_date(date_string: str) -> datetime:
-        """Парсит строку даты в формате ISO в объект datetime."""
+        """Преобразует строку даты в формате ISO в объект datetime."""
 
         return datetime.fromisoformat(date_string)
 
@@ -24,7 +25,8 @@ def sort_by_date(transactions: list, reverse: bool = True) -> list:
 
     return sorted_transactions
 
-    # Примеры использования и проверки функций
+
+# Примеры использования и проверки функций
 
 
 if __name__ == "__main__":
