@@ -1,5 +1,6 @@
 import pytest
-from src.masks import get_mask_card_number, get_mask_account
+
+from src.masks import get_mask_account, get_mask_card_number
 
 
 @pytest.mark.parametrize(
@@ -8,21 +9,20 @@ from src.masks import get_mask_card_number, get_mask_account
         ("7000792289636363", "7000 79** **** 6363"),
         ("1234567812345678", "1234 56** **** 5678"),
         ("1234 5678 9012 3456", "1234 56** **** 3456"),
-
     ],
 )
-def test_get_mask_card_number(card_number, expected_output):
+def test_get_mask_card_number(card_number: str, expected_output: str) -> None:
     """Проверка корректного маскирования карты."""
     assert get_mask_card_number(card_number) == expected_output
 
 
-def test_get_mask_account_success():
+def test_get_mask_account_success() -> None:
     """Проверка корректного маскирования счета."""
     account_number = "12345678901234567890"
     assert get_mask_account(account_number) == "**7890"
 
 
-def test_get_mask_account_with_spaces():
+def test_get_mask_account_with_spaces() -> None:
     """Проверка корректного маскирования счета."""
     account_number = "1234 5678 9012 3456 7890"
     assert get_mask_account(account_number) == "**7890"
