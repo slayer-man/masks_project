@@ -19,6 +19,8 @@ def get_mask_card_number(card_number: Union[str]) -> Union[str]:
 def get_mask_account(account: Union[str], number: int = 2) -> Union[str, int]:
     """Функция заменяет часть строки на *"""
 
+    account = account.replace(" ", "")
+
     if len(account) != 20:
         print("Не верно введен номер банковского счета:  ")
         return account
