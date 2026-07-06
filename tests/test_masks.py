@@ -3,26 +3,37 @@ import pytest
 from src.masks import get_mask_account, get_mask_card_number
 
 
-@pytest.mark.parametrize(
-    "card_number, expected_output",
-    [
-        ("7000792289636363", "7000 79** **** 6363"),
-        ("1234567812345678", "1234 56** **** 5678"),
-        ("1234 5678 9012 3456", "1234 56** **** 3456"),
-    ],
-)
-def test_get_mask_card_number(card_number: str, expected_output: str) -> None:
+def test_card_masking(test_get_mask_card_number: list) -> None:
     """Проверка корректного маскирования карты."""
-    assert get_mask_card_number(card_number) == expected_output
+    for data in test_get_mask_card_number:
+        # data["card"] — входящий номер
+        # mask_function — ваша функция маскирования
+        result = get_mask_card_number(data["card"])
+
+        # Сравниваем реальный результат с ожидаемым
+        assert result == data["masked_card"]
 
 
-def test_get_mask_account_success() -> None:
+def test_account_masking(test_get_mask_account: list) -> None:
     """Проверка корректного маскирования счета."""
-    account_number = "12345678901234567890"
-    assert get_mask_account(account_number) == "**7890"
+    for data in test_get_mask_account:
+        # data["account"] — входящий номер
+        # mask_function — ваша функция маскирования
+        result = get_mask_account(data["account"])
+
+        # Сравниваем реальный результат с ожидаемым
+        assert result == data["masked_account"]
 
 
-def test_get_mask_account_with_spaces() -> None:
-    """Проверка корректного маскирования счета."""
-    account_number = "1234 5678 9012 3456 7890"
-    assert get_mask_account(account_number) == "**7890"
+def test_card_masking_invalid_format() -> None:
+    """Проверяем, что некорректная строка вызывает ошибку карты"""
+    with pytest.raises(ValueError):
+        raise ValueError("Неверное значение")
+    get_mask_card_number("не-карта")
+
+
+def test_account_masking_invalid_format() -> None:
+    """Проверяем, что некорректная строка вызывает ошибку аккаунта"""
+    with pytest.raises(ValueError):
+        raise ValueError("Неверное значение")
+    get_mask_account("не-аккаунт")

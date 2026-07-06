@@ -20,17 +20,17 @@ def mask_account_card(account_card: str) -> tuple:
         return card_text_str, card_number_str
 
 
-formats = [
-    "%Y-%m-%dT%H:%M:%S.%f",
-    "%Y-%m-%dT%H:%M:%S",
-    "%Y-%m-%d"
-]
+formats = ["%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"]
+
 
 def get_date(date_string: str) -> str:
+    """Функция преобразования даты из ISO в dd/mm/yyyy"""
     for fmt in formats:
         try:
-            date_obj = datetime.strptime(date_string.replace('Z', ''), fmt)
-            return date_obj.strftime('%d.%m.%Y')
+            date_obj = datetime.strptime(date_string.replace("Z", ""), fmt)
+            return date_obj.strftime("%d.%m.%Y")
+            raise ValueError(date_string)
         except ValueError:
             continue
-    raise ValueError("Неподдерживаемый формат даты")
+    print("Неподдерживаемый формат даты: ")
+    return date_string

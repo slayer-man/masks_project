@@ -34,6 +34,24 @@ source .venv/bin/activate
 ```
 .venv\Scripts\activate
 ```
+## Для запуска тестов нужно ввести комманды в коммандной строке
+## Комманды для запусука тестов:
+1. Для masks.py
+```commandline
+pytest tests/test_masks.py
+```
+2. Для widget.py
+```commandline
+pytest tests/test_widget.py
+```
+3. Для processing.py
+```commandline
+pytest tests/test_processing.py
+```
+4. Для запуска сразу всех тестов 
+```commandline
+pytest
+```
 
 ## Документация:
 
