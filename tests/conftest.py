@@ -3,13 +3,24 @@ import pytest
 from src.processing import filter_by_state, sort_by_date
 
 
-@pytest.fixture
-def test_get_mask_card_number() -> list:
-    """Фикстура с тестовыми данными для маскирования карты. Для модуля masks.py"""
-    return [
-        {"card": "1234567890123456", "masked_card": "1234 56** **** 3456"},
-        {"card": "1234 5678 9012 3456", "masked_card": "1234 56** **** 3456"},
-    ]
+@pytest.mark.parametrize(
+    "card_number, expected",
+    [
+        ("1234567890123456", "1234 56 3456"),
+        ("1234 5678 9012 3456", "1234 56 3456"),
+    ],
+)
+def test_card_masking(card_number, expected):
+    assert get_mask_card_number(card_number) == expected
+
+
+# @pytest.fixture
+# def test_get_mask_card_number() -> list:
+#    """Фикстура с тестовыми данными для маскирования карты. Для модуля masks.py"""
+#    return [
+#        {"card": "1234567890123456", "masked_card": "1234 56** **** 3456"},
+#        {"card": "1234 5678 9012 3456", "masked_card": "1234 56** **** 3456"},
+#    ]
 
 
 @pytest.fixture
@@ -53,9 +64,6 @@ def test_mask_account_card_data() -> list:
         ("1234 5678 9012 3456 Maestro", ("Maestro", "1234 5678 9012 3456")),
         ("Здесь нет цифр", ("Здесь нет цифр", "")),
     ]
-
-
-import pytest
 
 
 @pytest.fixture
