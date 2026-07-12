@@ -1,6 +1,8 @@
 import pytest
 
-from src.processing import filter_by_state, sort_by_date
+from data.data_dict_generators import transactions_cur
+from src.generators import card_number_generator, filter_by_currency
+from src.masks import get_mask_card_number
 
 
 @pytest.mark.parametrize(
@@ -10,17 +12,17 @@ from src.processing import filter_by_state, sort_by_date
         ("1234 5678 9012 3456", "1234 56 3456"),
     ],
 )
-def test_card_masking(card_number, expected):
+def test_card_masking(card_number: str, expected: str) -> None:
     assert get_mask_card_number(card_number) == expected
 
 
-# @pytest.fixture
-# def test_get_mask_card_number() -> list:
-#    """Фикстура с тестовыми данными для маскирования карты. Для модуля masks.py"""
-#    return [
-#        {"card": "1234567890123456", "masked_card": "1234 56** **** 3456"},
-#        {"card": "1234 5678 9012 3456", "masked_card": "1234 56** **** 3456"},
-#    ]
+@pytest.fixture
+def test_get_mask_card_number() -> list:
+    """Фикстура с тестовыми данными для маскирования карты. Для модуля masks.py"""
+    return [
+        {"card": "1234567890123456", "masked_card": "1234 56** **** 3456"},
+        {"card": "1234 5678 9012 3456", "masked_card": "1234 56** **** 3456"},
+    ]
 
 
 @pytest.fixture
@@ -73,3 +75,36 @@ def test_data() -> list:
         {"date": "2023-05-01", "state": "CANCELED"},
         {"date": "2023-01-01", "state": "EXECUTED"},
     ]
+
+
+# Тест валюты generators.py
+@pytest.mark.parametrize(
+    "currency, expected_count",
+    [
+        ("USD", 2),
+        ("EUR", 1),
+        ("RUB", 0),
+    ],
+)
+def test_filter_by_currency(currency: str, expected_count: str) -> None:
+    """Тест валюты generators.py"""
+    result = list(filter_by_currency(transactions_cur, currency))
+    assert len(result) == expected_count
+
+
+@pytest.mark.parametrize(
+    "prefix, length, expected_format",
+    [
+        ("1234", 16, "1234 0000 0000 0001"),
+        ("5678", 16, "5678 0000 0000 0001"),
+        ("", 16, "0000 0000 0000 0001"),
+        ("12", 14, "12 0000 0000 01"),
+    ],
+)
+def test_card_number_generator(prefix: str, length: int, expected_format: str) -> None:
+    # Создаем генератор
+    card_gen = card_number_generator(prefix=prefix, length=length)
+    # Получаем первое значение
+    card_number = next(card_gen)
+    # Проверяем, что сгенерированный номер соответствует ожидаемому формату
+    assert card_number == expected_format
