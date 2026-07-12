@@ -1,5 +1,6 @@
 import itertools
 
+
 def card_number_generator(prefix, length=16):
     """ Генератор номеров карт. prefix - первые цифры в виде строки length - общая длина номера карты"""
     zeros_count = length - len(prefix)
@@ -16,3 +17,20 @@ card = card_number_generator(prefix="", length=16)
 # Вывод n - номеров.
 for _ in range(5):
     print(next(card))
+
+
+from data.data_dict_generators import transactions
+
+def filter_by_currency(transactions, currency):
+
+    for x in transactions:
+        if x["operationAmount"]["currency"]["code"] == currency:
+
+            yield x
+
+
+
+
+usd_transactions = filter_by_currency(transactions, "USD")
+for _ in range(3):
+    print(next(usd_transactions))
