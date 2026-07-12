@@ -8,3 +8,8 @@ def test_transaction_descriptions():
 
 def test_card_number_generator():
     pass
+
+
+empty_data = []
+descriptions = list(transaction_descriptions(empty_data))
+assert len(descriptions) == 0
