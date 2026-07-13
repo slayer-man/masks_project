@@ -29,7 +29,6 @@ def get_date(date_string: str) -> str:
         try:
             date_obj = datetime.strptime(date_string.replace("Z", ""), fmt)
             return date_obj.strftime("%d.%m.%Y")
-            raise ValueError(date_string)
         except ValueError:
             continue
     print("Неподдерживаемый формат даты: ")

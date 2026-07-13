@@ -1,7 +1,7 @@
 from src.masks import get_mask_account, get_mask_card_number
 from src.processing import filter_by_state, sort_by_date
 from src.widget import get_date, mask_account_card
-from tests.tests_dict import my_list_dict
+from data.data_dict_processing import my_list_dict
 
 card = str(input("Введите свой банковский аккаунт или номер карты: ")).capitalize()
 date_string = str(input("Введите дату:  "))
