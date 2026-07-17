@@ -77,34 +77,39 @@ def test_data() -> list:
     ]
 
 
-# Тест валюты generators.py
-@pytest.mark.parametrize(
-    "currency, expected_count",
-    [
-        ("USD", 2),
-        ("EUR", 1),
-        ("RUB", 0),
-    ],
-)
-def test_filter_by_currency(currency: str, expected_count: str) -> None:
-    """Тест валюты generators.py"""
-    result = list(filter_by_currency(transactions_cur, currency))
-    assert len(result) == expected_count
-
-
-@pytest.mark.parametrize(
-    "prefix, length, expected_format",
-    [
-        ("1234", 16, "1234 0000 0000 0001"),
-        ("5678", 16, "5678 0000 0000 0001"),
-        ("", 16, "0000 0000 0000 0001"),
-        ("12", 14, "12 0000 0000 01"),
-    ],
-)
-def test_card_number_generator(prefix: str, length: int, expected_format: str) -> None:
-    # Создаем генератор
-    card_gen = card_number_generator(prefix=prefix, length=length)
-    # Получаем первое значение
-    card_number = next(card_gen)
-    # Проверяем, что сгенерированный номер соответствует ожидаемому формату
-    assert card_number == expected_format
+# Фикстура для транзакций
+@pytest.fixture
+def transactions():
+    return [
+        {
+            "id": 970157810,
+            "date": "2018-06-08T10:3:58.027767",
+            "operationAmount": {
+                "amount": "150",
+                "currency": {
+                    "code": "USD"
+                }
+            },
+            "description": "Перевод организации",
+            "from": "Счет - 63475662387234505765",
+            "to": "Счет 8175128657841941437"
+        },
+        {
+            "id": 142264268,
+            "state": "EXECUTED",
+            "date": "2019-04-04T23:20:05.206878",
+            "operationAmount": {"amount": "79114.93", "currency": {"name": "USD", "code": "USD"}},
+            "description": "Перевод со счета на счет",
+            "from": "Счет 19708645243227258542",
+            "to": "Счет 75651667383060284188",
+        },
+        {
+            "id": 873106923,
+            "state": "EXECUTED",
+            "date": "2019-03-23T01:09:46.296404",
+            "operationAmount": {"amount": "43318.34", "currency": {"name": "руб.", "code": "RUB"}},
+            "description": "Перевод со счета на счет",
+            "from": "Счет 44812258784861134719",
+            "to": "Счет 74489636417521191160",
+        }
+    ]
