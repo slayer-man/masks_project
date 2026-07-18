@@ -22,15 +22,15 @@ def test_transaction_descriptions_diff_length_data() -> None:
 
 
 @pytest.mark.parametrize(
-    "start, end, prefix, expected",
+    "start, end, expected",
     [
-        (1, 1, "0", "0000 0000 0000 0001"),
-        (2, 2, "0", "0000 0000 0000 0002"),
-        (12, 12, "0", "0000 0000 0000 0012"),
+        (1, 1, "0000 0000 0000 0001"),
+        (2, 2, "0000 0000 0000 0002"),
+        (12, 12, "0000 0000 0000 0012"),
     ],
 )
-def test_card_number_generator(start: int, end: int, prefix: str, expected: int) -> None:
-    card_gen = card_number_generator(start, end, prefix, length=16)
+def test_card_number_generator(start: int, end: int, expected: int) -> None:
+    card_gen = card_number_generator(start, end)
     for _ in range(start, end + 1):
         assert next(card_gen) == expected
 
