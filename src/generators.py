@@ -5,7 +5,7 @@ from data.data_dict_generators import transactions
 
 # Генератор банковских карт
 def card_number_generator(start_val: int, end_val: int) -> Generator[str, None, None]:
-    """Генератор номеров карт. prefix - первые цифры в виде строки length - общая длина номера карты"""
+    """Генератор номеров карт с начальным значением start и конечным значением end"""
 
     # Перебор диапазона от начального до конечного значения
     for current_num in range(start_val, end_val + 1):
@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
 # Функция фильтр
 def filter_by_currency(transactions: List[Dict[str, Any]], currency: str) -> Iterator[Dict[str, Any]]:
-    """Функция фильтрующяя по currency"""
+    """Функция фильтрующяя словарь с транзакциями по currency"""
 
     for x in transactions:
         if x["operationAmount"]["currency"]["code"] == currency:
@@ -42,7 +42,7 @@ for _ in range(3):
 
 # Генератор транзакций
 def transaction_descriptions(transactions: List[Dict[str, Any]]) -> Iterator[str]:
-    """Генератор выводящий данные по 'description'."""
+    """Генератор выводящий данные из словаря транзакций по 'description'."""
     for i, t in enumerate(transactions):
         transactions_name = t["description"]
         yield transactions_name
