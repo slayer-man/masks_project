@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, TypedDict, cast
 import requests
 from dotenv import load_dotenv
 
@@ -13,29 +13,35 @@ CACHE_FILE = os.path.join(BASE_DIR, "data", "exchange_rates.json")
 TRANSACTIONS_FILE = os.path.join(BASE_DIR, "data", "operations.json")
 
 
-def save_cache(data: dict):
-    """Сохраняет словарь всех курсов в JSON-файл."""
+class RateData(TypedDict):
+    RUB: float
+    timestamp: str
 
+
+def save_cache(data: dict) -> None:
+    """Сохраняет словарь всех курсов в JSON-файл."""
     try:
         os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
         with open(CACHE_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
-    except Exception as e:
+    except OSError as e:
         print(f"[ОШИБКА] Не удалось записать кэш на диск: {e}")
 
 
-def load_cache() -> Optional[dict]:
+def load_cache() -> Optional[Dict[str, RateData]]:
     if not os.path.exists(CACHE_FILE):
         return None
     try:
         with open(CACHE_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception as e:
+            # Явно приводим тип загруженного JSON к ожидаемому словарю
+            raw_data = json.load(f)
+            return cast(Optional[Dict[str, RateData]], raw_data)
+    except (OSError, json.JSONDecodeError) as e:
         print(f"[ОШИБКА] Кэш на диске поврежден или не читается: {e}")
         return None
 
 
-def fetch_from_api(base_currency: str) -> Optional[Dict[str, float]]:
+def fetch_from_api(base_currency: str) -> Optional[RateData]:
     """Запрашивает свежий курс у сайта."""
     if not API_KEY:
         print("[ОШИБКА] Переменная окружения API_KEY не найдена!")
@@ -55,19 +61,23 @@ def fetch_from_api(base_currency: str) -> Optional[Dict[str, float]]:
 
         data = response.json()
 
+        # Используем .get() с дефолтами, чтобы избежать TypeError при обращении к None
+        rates_container = data.get("rates") or data.get("quotes", {})
 
-        rate_container = data.get("quotes") or data.get("rates")
-        rub_rate = rate_container.get("RUB") if rate_container else None
+        rub_rate_raw = rates_container.get("RUB")
+        date_str = data.get("date")
 
-        if rub_rate is None:
+        if rub_rate_raw is None or date_str is None:
             return None
 
-        result = {"RUB": float(rub_rate), "timestamp": data.get("date")}
+        result: RateData = {
+            "RUB": float(rub_rate_raw),
+            "timestamp": date_str
+        }
 
-        # Сохраняем данные
         cache_to_save = {}
         existing_cache = load_cache()
-        if existing_cache:
+        if isinstance(existing_cache, dict):
             cache_to_save.update(existing_cache)
 
         cache_to_save[base_currency] = result
@@ -75,17 +85,21 @@ def fetch_from_api(base_currency: str) -> Optional[Dict[str, float]]:
 
         return result
 
-    except requests.RequestException as e:
+
+    except (requests.RequestException, Exception) as e:
+
         print(f"[INFO] Нет подключения к сети ({e}). Попробуем найти данные в файле.")
-        return None
-    except Exception as e:
-        print(f"[ОШИБКА СЕТИ] При получении курса {base_currency}: {e}")
+
         return None
 
-def get_rates(base_currency: str) -> Optional[Dict[str, float]]:
-    """ Главная точка входа. Сначала сеть -> Сохранение в файл.
-    Затем чтение из файла при ошибке сети."""
+    except (ValueError, KeyError) as e:
 
+        print(f"[ОШИБКА СЕТИ/ДАННЫХ] При получении курса {base_currency}: {e}")
+
+        return None
+
+
+def get_rates(base_currency: str) -> Optional[RateData]:
     fresh_data = fetch_from_api(base_currency)
     if fresh_data:
         return fresh_data
@@ -96,43 +110,61 @@ def get_rates(base_currency: str) -> Optional[Dict[str, float]]:
             f"[INFO] Используем закешированный курс для {base_currency} от {cached_data[base_currency].get('timestamp')}")
         return cached_data[base_currency]
 
-    print(f"[КРИТИЧЕСКАЯ ОШИБКА] Курс для {base_currency} не найден.")
+    print(f"[КРИТИЧЕСКАЯ ОШИБКА] Курс для {base_currency} не найден ни в сети, ни в кэше.")
     return None
 
 
-def convert_to_rub(tx: dict, rate: float, currency_code: str) -> Optional[float]:
-    """ Конвертация без доступа к сети.
-    Принимает транзакцию, ГОТОВЫЙ ЧИСЛОВОЙ КОЭФФИЦИЕНТ курса и код валюты. """
+# Строгая структура транзакции для mypy
+class Transaction(TypedDict, total=False):
+    amount: str | int | float
+    currency: str
 
-    if not isinstance(tx, dict):
-        return None
 
-    amount_str = tx.get('amount')
+def convert_to_rub(tx: Transaction, rate: Optional[float], currency_code: str) -> Optional[float]:
+    """ Конвертация без доступа к сети. """
 
-    try:
-        value = float(amount_str)
-    except (ValueError, TypeError):
-        return None
-
+    # Проверка валюты делается сразу, чтобы избежать лишних вычислений
     if currency_code == "RUB":
-        return value
+        # Для рублей коэффициент должен быть строго 1.0
+        if rate is not None and abs(rate - 1.0) > 1e-9:
+            print(f"[ПРЕДУПРЕЖДЕНИЕ] Для RUB передан некорректный курс {rate}. Игнорируем.")
+        return _safe_parse_amount(tx)
 
-    # Для USD/EUR используем кэшированный курс
     if rate is None:
+        return None
+
+    value = _safe_parse_amount(tx)
+    if value is None:
         return None
 
     return round(value * rate, 2)
 
-def load_transactions() -> List[Dict]:
-    """ Загружает список транзакций из JSON-файла.
-        Если файл отсутствует или поврежден, возвращает пустой список,
-        предотвращая падение программы с необработанным исключением. """
 
+def _safe_parse_amount(tx: Transaction) -> Optional[float]:
+    """Безопасное извлечение суммы из транзакции."""
+    amount_str = tx.get('amount')
+    if amount_str is None:
+        return None
     try:
-        with open(TRANSACTIONS_FILE) as f:
-            return json.load(f)
-    except Exception:
-        return []
+        return float(amount_str)
+    except (ValueError, TypeError):
+        return None
 
+
+def load_transactions() -> List[Transaction]:
+    """ Загружает список транзакций из JSON-файла. """
+    try:
+        with open(TRANSACTIONS_FILE, encoding='utf-8') as f:
+            data = json.load(f)
+            # Убеждаемся, что вернулся именно список словарей
+            if isinstance(data, list):
+                return cast(List[Transaction], data)
+            return []
+    except FileNotFoundError:
+        # Файл еще не создан — это штатная ситуация
+        return []
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"[ОШИБКА] Транзакции повреждены или не читаются: {e}")
+        return []
 
 
