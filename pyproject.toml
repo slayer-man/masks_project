@@ -68,3 +68,8 @@ exclude = '''
 line_length = 119
 # Стиль вывода для многострочных импортов
 multi_line_output = 3
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=prepend"
+testpaths = ["tests"]
+pythonpath = ["."] # Добавляет корень проекта в sys.path
