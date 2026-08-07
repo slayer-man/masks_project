@@ -113,3 +113,12 @@ def transactions():
             "to": "Счет 74489636417521191160",
         }
     ]
+
+@pytest.fixture
+def sample_transactions():
+    return [
+        {"id": 1, "operationAmount": {"amount": "100", "currency": {"code": "USD"}}},
+        {"id": 2, "operationAmount": {"amount": "500", "currency": {"code": "RUB"}}},
+        {"id": 3, "operationAmount": {"amount": "10"}},
+        {"id": 4, "operationAmount": {"amount": None, "currency": {"code": "EUR"}}}
+    ]
