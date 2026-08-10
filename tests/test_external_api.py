@@ -1,7 +1,4 @@
-import os
 from unittest.mock import patch, MagicMock
-import pytest
-
 from src.external_api import get_rates, convert_to_rub
 
 

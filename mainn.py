@@ -1,9 +1,8 @@
-# mainn.py
-from src.exchange_rate import load_transactions, get_rates, convert_to_rub
+from src.exchange_rate import convert_to_rub, get_rates, load_transactions
 
 
 def mainn():
-    """ Функция которая считывает данные по курсам валют,
+    """Функция которая считывает данные по курсам валют,
     переводит валюту в рубли"""
 
     transactions = load_transactions()
@@ -28,13 +27,13 @@ def mainn():
     print("\n--- Начало конвертации ---")
 
     for t in transactions:
-        op_amount = t.get('operationAmount', {})
-        amount_str = op_amount.get('amount')
-        cur_obj = op_amount.get('currency', {})
+        op_amount = t.get("operationAmount", {})
+        amount_str = op_amount.get("amount")
+        cur_obj = op_amount.get("currency", {})
 
         display_cur = ""
         if isinstance(cur_obj, dict):
-            code = cur_obj.get('code')
+            code = cur_obj.get("code")
             if code:
                 display_cur = code.upper()
 
@@ -54,8 +53,8 @@ def mainn():
             # Если данные есть, пробуем распарсить число
             try:
                 value = float(amount_str)
-                display_amt = f"{value:,.2f}".replace(',', ' ')
-            except (ValueError, TypeError):
+                display_amt = f"{value:,.2f}".replace(",", " ")
+            except ValueError, TypeError:
                 display_amt = "-"
                 result_str = "Пропущено (битая сумма)"
 
@@ -85,13 +84,13 @@ def mainn():
         if rub_amount is not None:
             total_rub += rub_amount
             count_success += 1
-            result_str = f"{rub_amount:,.2f} RUB".replace(',', ' ')
+            result_str = f"{rub_amount:,.2f} RUB".replace(",", " ")
 
         print(f"{display_amt} {display_cur} -> {result_str}")
 
     print("-" * 40)
     print(f"Успешно обработано: {count_success} из {len(transactions)}")
-    final_total = f"{total_rub:,.2f}".replace(',', ' ')
+    final_total = f"{total_rub:,.2f}".replace(",", " ")
     print(f"Общая сумма в рублях: {final_total} RUB")
 
 

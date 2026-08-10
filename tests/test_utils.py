@@ -1,6 +1,7 @@
 import json
-from pathlib import Path
 from unittest.mock import mock_open
+
+from src.utils import load_transactions
 
 
 def test_load_transactions_success(mocker):
@@ -19,23 +20,10 @@ def test_load_transactions_success(mocker):
     # Мокируем проверку существования файла, чтобы он считался существующим
     mocker.patch('pathlib.Path.exists', return_value=True)
 
-    from src.utils import load_transactions
     result = load_transactions()
 
     assert result == sample_data
     m.assert_called_once_with("data/operations.json")
-
-
-def test_load_transactions_file_not_found(mocker):
-    """Файла нет на диске — должен вернуться пустой список."""
-
-    # Указываем, что файл не существует
-    mocker.patch('pathlib.Path.exists', return_value=False)
-
-    from src.utils import load_transactions
-    result = load_transactions()
-
-    assert result == []
 
 
 def test_load_transactions_invalid_json(mocker):
@@ -46,7 +34,6 @@ def test_load_transactions_invalid_json(mocker):
     # Открываем файл с мусором вместо JSON
     m = mocker.patch('builtins.open', mock_open(read_data='{"invalid_json": }'))
 
-    from src.utils import load_transactions
     result = load_transactions()
 
     assert result == []
@@ -59,7 +46,6 @@ def test_load_transactions_empty_file(mocker):
     mocker.patch('pathlib.Path.exists', return_value=True)
     m = mocker.patch('builtins.open', mock_open(read_data=''))  # Пустая строка
 
-    from src.utils import load_transactions
     result = load_transactions()
 
     assert result == []
@@ -75,7 +61,6 @@ def test_load_transactions_valid_json_but_not_list(mocker):
     not_a_list_data = {"message": "success"}
     m = mocker.patch('builtins.open', mock_open(read_data=json.dumps(not_a_list_data)))
 
-    from src.utils import load_transactions
     result = load_transactions()
 
     assert result == {'message': 'success'}

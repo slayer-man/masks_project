@@ -1,7 +1,5 @@
-# utils.py
-
 import json
-from typing import List, Dict
+from typing import Dict, List
 
 
 def load_transactions() -> List[Dict]:

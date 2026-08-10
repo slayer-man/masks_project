@@ -1,6 +1,6 @@
-# external_api.py
 import os
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 import requests
 from dotenv import load_dotenv
 
@@ -15,15 +15,12 @@ def get_rates(base_currency: str) -> Optional[Dict[str, float]]:
     Например: {"RUB": 78.15}
     """
     if not API_KEY:
-        print(f"[ОШИБКА] Переменная окружения API_KEY не найдена!")
+        print("[ОШИБКА] Переменная окружения API_KEY не найдена!")
         return None
 
     try:
         response = requests.get(
-            URL,
-            headers={"apikey": API_KEY},
-            params={"base": base_currency, "symbols": "RUB"},
-            timeout=5
+            URL, headers={"apikey": API_KEY}, params={"base": base_currency, "symbols": "RUB"}, timeout=5
         )
 
         # Если сервер вернул ошибку (например, лимит исчерпан), выходим
@@ -64,7 +61,7 @@ def convert_to_rub(tx: dict, cache: dict) -> Optional[float]:
 
     try:
         value = float(amount)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
     # Рубли конвертировать не нужно
