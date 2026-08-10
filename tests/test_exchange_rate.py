@@ -120,7 +120,6 @@ def test_fetch_from_api_no_api_key(mocker):  # Используем коротк
 
     result = fetch_from_api("USD")
     assert result is None
-    #monkeypatch.undo()
 
     @patch('src.exchange_rate.fetch_from_api', return_value=None)
     @patch('src.exchange_rate.load_cache')

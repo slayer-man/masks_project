@@ -1,6 +1,7 @@
 import json
 import os
-from typing import Optional, Dict, List, TypedDict, cast
+from typing import Dict, List, Optional, TypedDict, cast
+
 import requests
 from dotenv import load_dotenv
 
@@ -22,7 +23,7 @@ def save_cache(data: dict) -> None:
     """Сохраняет словарь всех курсов в JSON-файл."""
     try:
         os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
-        with open(CACHE_FILE, 'w', encoding='utf-8') as f:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
     except OSError as e:
         print(f"[ОШИБКА] Не удалось записать кэш на диск: {e}")
@@ -32,7 +33,7 @@ def load_cache() -> Optional[Dict[str, RateData]]:
     if not os.path.exists(CACHE_FILE):
         return None
     try:
-        with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+        with open(CACHE_FILE, "r", encoding="utf-8") as f:
             # Явно приводим тип загруженного JSON к ожидаемому словарю
             raw_data = json.load(f)
             return cast(Optional[Dict[str, RateData]], raw_data)
@@ -49,10 +50,7 @@ def fetch_from_api(base_currency: str) -> Optional[RateData]:
 
     try:
         response = requests.get(
-            URL,
-            headers={"apikey": API_KEY},
-            params={"base": base_currency, "symbols": "RUB"},
-            timeout=5
+            URL, headers={"apikey": API_KEY}, params={"base": base_currency, "symbols": "RUB"}, timeout=5
         )
 
         if response.status_code != 200:
@@ -70,10 +68,7 @@ def fetch_from_api(base_currency: str) -> Optional[RateData]:
         if rub_rate_raw is None or date_str is None:
             return None
 
-        result: RateData = {
-            "RUB": float(rub_rate_raw),
-            "timestamp": date_str
-        }
+        result: RateData = {"RUB": float(rub_rate_raw), "timestamp": date_str}
 
         cache_to_save = {}
         existing_cache = load_cache()
@@ -84,7 +79,6 @@ def fetch_from_api(base_currency: str) -> Optional[RateData]:
         save_cache(cache_to_save)
 
         return result
-
 
     except (requests.RequestException, Exception) as e:
 
@@ -107,7 +101,9 @@ def get_rates(base_currency: str) -> Optional[RateData]:
     cached_data = load_cache()
     if cached_data and base_currency in cached_data:
         print(
-            f"[INFO] Используем закешированный курс для {base_currency} от {cached_data[base_currency].get('timestamp')}")
+            f"[INFO] Используем закешированный курс для {base_currency} от"
+            f" {cached_data[base_currency].get('timestamp')}"
+        )
         return cached_data[base_currency]
 
     print(f"[КРИТИЧЕСКАЯ ОШИБКА] Курс для {base_currency} не найден ни в сети, ни в кэше.")
@@ -121,7 +117,7 @@ class Transaction(TypedDict, total=False):
 
 
 def convert_to_rub(tx: Transaction, rate: Optional[float], currency_code: str) -> Optional[float]:
-    """ Конвертация без доступа к сети. """
+    """Конвертация без доступа к сети."""
 
     # Проверка валюты делается сразу, чтобы избежать лишних вычислений
     if currency_code == "RUB":
@@ -142,19 +138,19 @@ def convert_to_rub(tx: Transaction, rate: Optional[float], currency_code: str) -
 
 def _safe_parse_amount(tx: Transaction) -> Optional[float]:
     """Безопасное извлечение суммы из транзакции."""
-    amount_str = tx.get('amount')
+    amount_str = tx.get("amount")
     if amount_str is None:
         return None
     try:
         return float(amount_str)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
 
 def load_transactions() -> List[Transaction]:
-    """ Загружает список транзакций из JSON-файла. """
+    """Загружает список транзакций из JSON-файла."""
     try:
-        with open(TRANSACTIONS_FILE, encoding='utf-8') as f:
+        with open(TRANSACTIONS_FILE, encoding="utf-8") as f:
             data = json.load(f)
             # Убеждаемся, что вернулся именно список словарей
             if isinstance(data, list):
@@ -166,5 +162,3 @@ def load_transactions() -> List[Transaction]:
     except (OSError, json.JSONDecodeError) as e:
         print(f"[ОШИБКА] Транзакции повреждены или не читаются: {e}")
         return []
-
-
