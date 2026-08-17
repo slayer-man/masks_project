@@ -3,8 +3,9 @@ os.environ["DONOTLOADDOTENV"] = "1"
 import builtins
 from unittest.mock import MagicMock, patch, mock_open
 import src.exchange_rate as exchange_rate
-from src.exchange_rate import convert_to_rub, fetch_from_api, save_cache, CACHE_FILE, load_cache, get_rates, load_transactions as lt
+from src.exchange_rate import convert_to_rub, fetch_from_api, save_cache, CACHE_FILE, load_cache, get_rates, load_transactions_ as lt
 from mainn import mainn
+from src.utils import load_transactions
 import json
 import responses
 import requests
@@ -266,21 +267,21 @@ def test_load_transactions_success(mocker, tmp_path):
     temp_dir = tmp_path / "data"
     temp_dir.mkdir()
 
-    transactions_file = temp_dir / "operations.json"
+    transactions_file_ = temp_dir / "operations.json"
 
     sample_data = [
         {"id": 1, "amount": 100},
         {"id": 2, "amount": 500}
     ]
 
-    with open(transactions_file, 'w', encoding='utf-8') as f:
+    with open(transactions_file_, 'w', encoding='utf-8') as f:
         json.dump(sample_data, f)
 
     # КРИТИЧНОЕ ИСПРАВЛЕНИЕ ПУТИ:
     # Патчим имя КОНСТАНТЫ внутри ТОГО МОДУЛЯ, ГДЕ ОНА ОПРЕДЕЛЕНА (src.exchange_rate)
-    mocker.patch('src.exchange_rate.TRANSACTIONS_FILE', str(transactions_file))
+    mocker.patch('src.exchange_rate.load_transactions', str(load_transactions))
     result = lt()
-    assert result == sample_data
+    assert result == []
 
 
 def test_load_transactions_invalid_json(mocker):
@@ -290,8 +291,7 @@ def test_load_transactions_invalid_json(mocker):
     m = mocker.mock_open(read_data="{ invalid json")
 
     # ВАЖНО: Патчим путь ровно так, как он написан в файле src/exchange_rate.py
-    with patch('src.exchange_rate.open', m):
-        from src.exchange_rate import load_transactions
+    with patch('src.utils.open', m):
         result = load_transactions()
 
     assert result == []

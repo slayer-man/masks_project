@@ -1,7 +1,5 @@
 import pytest
 
-from data.data_dict_generators import transactions_cur
-from src.generators import card_number_generator, filter_by_currency
 from src.masks import get_mask_card_number
 
 

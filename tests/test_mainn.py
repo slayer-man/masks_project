@@ -1,7 +1,5 @@
-# tests/test_mainn.py
-import pytest
-
-
+from mainn import mainn as run_app
+from src.exchange_rate import convert_to_rub
 
 
 def test_main_success_flow(mocker, capsys, sample_transactions):
@@ -13,7 +11,6 @@ def test_main_success_flow(mocker, capsys, sample_transactions):
         {"RUB": 100.0}
     ])
 
-    from mainn import mainn as run_app
     run_app()
     captured = capsys.readouterr().out  # Это СТРОКА
 
@@ -27,7 +24,7 @@ def test_main_success_flow(mocker, capsys, sample_transactions):
 
 def test_convert_to_rub_edge_cases():
     """Тестируем чистую функцию на экстремальных значениях."""
-    from src.exchange_rate import convert_to_rub
+
 
     cache = {"USD": 90.0, "EUR": 100.0}
 
