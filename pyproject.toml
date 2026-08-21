@@ -7,8 +7,7 @@ authors = [
 ]
 requires-python = ">=3.15"
 dependencies = [
-    "requests (>=2.34.2,<3.0.0)",
-    "python-dotenv (>=1.2.2,<2.0.0)"
+    "requests (>=2.34.2,<3.0.0)"
 ]
 
 
@@ -25,8 +24,7 @@ lint = [
 ]
 dev = [
     "pytest (>=9.1.1,<10.0.0)",
-    "pytest-cov (>=7.1.0,<8.0.0)",
-    "responses (>=0.26.2,<0.27.0)"
+    "pytest-cov (>=7.1.0,<8.0.0)"
 ]
 
 [tool.mypy]
@@ -68,8 +66,3 @@ exclude = '''
 line_length = 119
 # Стиль вывода для многострочных импортов
 multi_line_output = 3
-
-[tool.pytest.ini_options]
-addopts = "--import-mode=prepend"
-testpaths = ["tests"]
-pythonpath = ["."] # Добавляет корень проекта в sys.path

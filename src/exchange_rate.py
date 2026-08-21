@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Dict, List, Optional, TypedDict, cast
-
+from src.utils import load_transactions
 import requests
 from dotenv import load_dotenv
 
@@ -143,14 +143,14 @@ def _safe_parse_amount(tx: Transaction) -> Optional[float]:
         return None
     try:
         return float(amount_str)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None
 
 
-def load_transactions() -> List[Transaction]:
+def load_transactions_() -> List[Transaction]:
     """Загружает список транзакций из JSON-файла."""
     try:
-        with open(TRANSACTIONS_FILE, encoding="utf-8") as f:
+        with open(load_transactions, encoding="utf-8") as f:
             data = json.load(f)
             # Убеждаемся, что вернулся именно список словарей
             if isinstance(data, list):
