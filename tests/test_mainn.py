@@ -1,3 +1,7 @@
+from mainn import mainn as run_app
+from src.exchange_rate import convert_to_rub
+
+
 def test_main_success_flow(mocker, capsys, sample_transactions):
     mocker.patch('mainn.load_transactions', return_value=sample_transactions)
 
@@ -20,6 +24,7 @@ def test_main_success_flow(mocker, capsys, sample_transactions):
 
 def test_convert_to_rub_edge_cases():
     """Тестируем чистую функцию на экстремальных значениях."""
+
 
     cache = {"USD": 90.0, "EUR": 100.0}
 

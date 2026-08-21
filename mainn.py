@@ -2,7 +2,7 @@ from src.exchange_rate import convert_to_rub, get_rates, load_transactions
 
 
 def mainn():
-    """Функция которая считывает данные по курсам валют,
+    """Функция, которая считывает данные по курсам валют,
     переводит валюту в рубли"""
 
     transactions = load_transactions()
@@ -54,7 +54,7 @@ def mainn():
             try:
                 value = float(amount_str)
                 display_amt = f"{value:,.2f}".replace(",", " ")
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 display_amt = "-"
                 result_str = "Пропущено (битая сумма)"
 

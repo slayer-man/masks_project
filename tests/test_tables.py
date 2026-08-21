@@ -1,9 +1,11 @@
-# tests/test_tables.py
 from pathlib import Path
 from unittest.mock import patch
 import pandas as pd
 import pytest
 from src.tables import read_csv_to_dict, read_excel_to_dict
+import sys
+import runpy
+
 
 
 @pytest.fixture
@@ -15,8 +17,9 @@ def sample_data():
     ]
 
 
+# 1. Тесты для успешного чтения функций
 @patch("pandas.read_csv")
-def test_read_csv_to_dict(mock_read_csv, sample_data):
+def test_read_csv_to_dict_success(mock_read_csv, sample_data):
     """Тест успешного чтения CSV файла."""
     mock_read_csv.return_value = pd.DataFrame(sample_data)
     result = read_csv_to_dict(Path("fake_path.csv"))
@@ -24,28 +27,31 @@ def test_read_csv_to_dict(mock_read_csv, sample_data):
 
 
 @patch("pandas.read_excel")
-def test_read_excel_to_dict(mock_read_excel, sample_data):
+def test_read_excel_to_dict_success(mock_read_excel, sample_data):
     """Тест успешного чтения Excel файла."""
     mock_read_excel.return_value = pd.DataFrame(sample_data)
     result = read_excel_to_dict(Path("fake_path.xlsx"))
     assert result == sample_data
 
 
-def test_read_csv_file_not_found():
-    """Тест поведения функции, если CSV файл отсутствует."""
-    result = read_csv_to_dict(Path("non_existent_file.csv"))
+# 2. Тесты для обработки ошибок (когда файлов нет)
+@patch("pandas.read_csv")
+def test_read_csv_file_not_found(mock_read_csv):
+    """Тест: CSV файл не найден."""
+    mock_read_csv.side_effect = FileNotFoundError
+    result = read_csv_to_dict(Path("missing.csv"))
     assert result == []
 
 
-def test_read_excel_file_not_found():
-    """Тест поведения функции, если Excel файл отсутствует."""
-    result = read_excel_to_dict(Path("non_existent_file.xlsx"))
+@patch("pandas.read_excel")
+def test_read_excel_file_not_found(mock_read_excel):
+    """Тест: Excel файл не найден."""
+    mock_read_excel.side_effect = FileNotFoundError
+    result = read_excel_to_dict(Path("missing.xlsx"))
     assert result == []
 
 
-# === ВСТАВЛЯЙТЕ НОВЫЙ ТЕСТ СЮДА (В САМЫЙ КОНЕЦ) ===
-
-
+# 3. Тест для блока __main__ (строки 29-38), использующий точный путь
 @patch("pandas.read_excel")
 @patch("pandas.read_csv")
 def test_main_block_output(mock_read_csv, mock_read_excel, capsys):
@@ -59,22 +65,22 @@ def test_main_block_output(mock_read_csv, mock_read_excel, capsys):
         [{"id": 456, "status": "EXCEL_DATA"}]
     )
 
-    # 2. Находим путь к файлу tables.py относительно файла теста
+    # 2. Находим путь к файлу src/tables.py
     current_dir = Path(__file__).resolve().parent
     tables_script_path = current_dir.parent / "src" / "tables.py"
 
-    # 3. Читаем код файла и выполняем его в контексте главного скрипта
-    with open(tables_script_path, "r", encoding="utf-8") as file:
-        code = file.read()
+    # 3. Убираем модуль из кэша Python, чтобы run_path выполнил его как новый файл
+    # Это полностью убирает предупреждение RuntimeWarning
+    if "src.tables" in sys.modules:
+        del sys.modules["src.tables"]
 
-    # Запускаем код, имитируя __main__
-    global_context = {"__name__": "__main__", "__file__": str(tables_script_path)}
-    exec(code, global_context)
+    # 4. Запускаем файл по его пути, имитируя __main__
+    runpy.run_path(str(tables_script_path), run_name="__main__")
 
-    # 4. Перехватываем текст из консоли
+    # 5. Перехватываем текст, который ушел в print()
     captured = capsys.readouterr()
 
-    # 5. Проверяем, что print() вывел всё правильно
+    # 6. Проверяем заголовки и сами данные в выводе
     assert "Вывод данных из .csv файла:" in captured.out
     assert "{'id': 123, 'status': 'CSV_DATA'}" in captured.out
 

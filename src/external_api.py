@@ -56,12 +56,16 @@ def convert_to_rub(tx: dict, cache: dict) -> Optional[float]:
     if not isinstance(tx, dict):
         return None
 
+    # Защита от передачи None или не-словаря в качестве кэша
+    if not isinstance(cache, dict):
+        return None
+
     amount = tx.get("amount")
     currency = str(tx.get("currency", "")).upper()
 
     try:
         value = float(amount)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None
 
     # Рубли конвертировать не нужно
@@ -71,7 +75,7 @@ def convert_to_rub(tx: dict, cache: dict) -> Optional[float]:
     # Проверяем, есть ли нужный нам курс в нашем кэше
     rate = cache.get(currency)
 
-    # Если курса нет в кэше (например, была валюта GBP, а мы её не запрашивали)
+    # Если курса нет в кэше
     if rate is None:
         return None
 

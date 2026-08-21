@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Dict, List, Optional, TypedDict, cast
+from src.utils import load_transactions
 import requests
 from dotenv import load_dotenv
 
@@ -10,6 +11,7 @@ URL = "https://api.apilayer.com/exchangerates_data/latest"
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 CACHE_FILE = os.path.join(BASE_DIR, "data", "exchange_rates.json")
+TRANSACTIONS_FILE = os.path.join(BASE_DIR, "data", "operations.json")
 
 
 class RateData(TypedDict):
@@ -141,12 +143,14 @@ def _safe_parse_amount(tx: Transaction) -> Optional[float]:
         return None
     try:
         return float(amount_str)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None
 
 
+def load_transactions_() -> List[Transaction]:
     """Загружает список транзакций из JSON-файла."""
     try:
+        with open(load_transactions, encoding="utf-8") as f:
             data = json.load(f)
             # Убеждаемся, что вернулся именно список словарей
             if isinstance(data, list):
