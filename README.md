@@ -130,7 +130,7 @@ pytest tests/test_utils.py
 ```commandline
 pytest tests/test_tables.py
 ```
-9Для запуска сразу всех тестов 
+9. Для запуска сразу всех тестов 
 ```commandline
 pytest
 ```
