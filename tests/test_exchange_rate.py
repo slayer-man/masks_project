@@ -1,395 +1,181 @@
-import os
-os.environ["DONOTLOADDOTENV"] = "1"
-import builtins
-from unittest.mock import mock_open
-import src.exchange_rate as exchange_rate
-from src.exchange_rate import convert_to_rub, fetch_from_api, save_cache, CACHE_FILE, load_cache, get_rates, load_transactions_ as lt
-from mainn import mainn
-from src.utils import load_transactions
 import json
-import responses
+from unittest.mock import MagicMock, mock_open, patch
+import pytest
 import requests
-from unittest.mock import patch, MagicMock
-from src.external_api import get_rates, convert_to_rub
-import src.exchange_rate
+from src import exchange_rate
 
-class TestExchangeRate:
-    def test_exchange_rate_integration(self, mocker, capsys, monkeypatch):
-        """ Сценарий: Полный контроль над ENV, ФАЙЛАМИ и СЕТЬЮ.
-        Проверяем сценарий отсутствия ключа при наличии данных в файле. """
 
-        # --- 1. ЖЕСТКАЯ ИЗОЛЯЦИЯ ОКРУЖЕНИЯ ---
-        monkeypatch.delenv("API_KEY", raising=False)
+# ==========================================
+# Тесты для функций работы с файловым кэшем
+# ==========================================
 
-        # --- 2. ДАННЫЕ ---
-        transactions = [
-            {"id": 1, "operationAmount": {"amount": "100", "currency": {"code": "USD"}}},
-            {"id": 2, "operationAmount": {"amount": "500", "currency": {"code": "RUB"}}},
-            {"id": 3, "operationAmount": {"amount": "10"}},
-            {"id": 4, "operationAmount": {"amount": None, "currency": {"code": "EUR"}}}
-        ]
+def test_save_cache_success():
+    """Тест успешного сохранения кэша."""
+    test_data = {"USD": {"RUB": 90.0, "timestamp": "2026-01-01"}}
+    m_open = mock_open()
 
-        # --- 3. ПЕРЕХВАТ ФАЙЛОВОЙ СИСТЕМЫ ---
-        real_open = builtins.open
+    with patch("os.makedirs") as mock_makedirs, patch("builtins.open", m_open):
+        exchange_rate.save_cache(test_data)
 
-        def fake_open(path, *args, **kwargs):
-            if str(path).endswith("operations.json"):
-                import io
-                return io.StringIO(json.dumps(transactions))
-            return real_open(path, *args, **kwargs)
+        # Проверяем, что папка для кэша создается автоматически
+        mock_makedirs.assert_called_once()
+        # Проверяем, что в файл был записан сериализованный JSON
+        m_open.assert_called_once_with(exchange_rate.CACHE_FILE, "w", encoding="utf-8")
 
-        monkeypatch.setattr(builtins, "open", fake_open)
 
-        # --- 4. ПЕРЕХВАТ СЕТИ ---
-        with responses.RequestsMock() as rsps:
-            rsps.add(
-                responses.GET,
-                "https://api.apilayer.com/exchangerates_data/latest",
-                json={"success": False, "error": {"code": 101, "info": "Invalid API key"}},
-                status=401
-            )
+def test_save_cache_os_error():
+    """Тест перехвата OSError при сохранении кэша (например, нет прав доступа)."""
+    with patch("os.makedirs", side_effect=OSError("Permission denied")):
+        # Функция не должна выбрасывать исключение наружу, а должна его обработать
+        exchange_rate.save_cache({"data": "test"})
 
-            # --- 5. МОКИ БИЗНЕС-ЛОГИКИ ---
-            mocker.patch.object(exchange_rate, 'load_cache', return_value=None)
-            mocker.patch.object(exchange_rate, 'save_cache')
-            mocker.patch.object(exchange_rate, 'load_transactions', return_value=transactions)
 
-            # --- 6. ЗАПУСК ---
+def test_load_cache_file_not_found():
+    """Тест загрузки кэша, когда файла физически не существует."""
+    with patch("os.path.exists", return_value=False):
+        assert exchange_rate.load_cache() is None
 
-            mainn()
 
-            # --- 7. ПРОВЕРКА ---
-            captured = capsys.readouterr().out
+def test_load_cache_success():
+    """Тест успешного чтения корректных данных из кэша."""
+    cached_data = {"USD": {"RUB": 90.5, "timestamp": "2026-08-27"}}
+    m_open = mock_open(read_data=json.dumps(cached_data))
 
-            # Нормализуем пробелы для надежного поиска ключевых слов
-            clean_output = captured.replace(" ", "").replace("\xa0", "")
+    with patch("os.path.exists", return_value=True), patch("builtins.open", m_open):
+        result = exchange_rate.load_cache()
+        assert result == cached_data
 
-            # 1. USD: Ошибка отсутствия курса + подтверждение запроса к API
-            assert "[КРИТИЧЕСКАЯОШИБКА]" in clean_output
-            assert "КурспоUSDненайден" in clean_output or "КурсдляUSDненайден" in clean_output
-            assert "[DEBUG]APIстатус:401дляUSD" in clean_output
 
-            # 2. EUR: Пропуск битой суммы (None)
-            assert "Пропущено(битаясумма)" in clean_output or "Ошибка" in captured
+def test_load_cache_json_decode_error():
+    """Тест обработки исключения при поврежденном JSON в файле кэша."""
+    m_open = mock_open(read_data="{invalid json")
 
-            # 3. Транзакция с ID 3 (валюта отсутствует в словаре объекта) также помечена как пропущенная/ошибка
-            # В нашем моке data[3] имеет валюту, но если ваш реальный JSON другой, проверка через "Пропущено" универсальна
+    with patch("os.path.exists", return_value=True), patch("builtins.open", m_open):
+        assert exchange_rate.load_cache() is None
 
-            # 4. Итоговая статистика внизу отчета — это самый надежный способ проверить логику
-            assert "Успешнообработано:1из4" in clean_output
-            assert "Общаясуммаврублях:500.00RUB" in clean_output
 
-            # 5. Проверка того, что успешная сумма RUB действительно напечатана
-            # Оставляем обычный поиск здесь, чтобы видеть число с точкой
-            assert "500.00" in captured
+# ==========================================
+# Тесты для функций работы с внешним API
+# ==========================================
 
-
-
-def test_convert_to_rub_edge_cases():
-    """Тестируем чистую функцию конвертации на экстремальных значениях."""
-    from src.exchange_rate import convert_to_rub
-
-    cache = {"USD": 90.0}
-
-    # Отрицательная сумма (возврат средств)
-    tx_neg = {"amount": "-10", "currency": "USD"}
-    assert convert_to_rub(tx_neg, cache["USD"], "USD") == -900.0
-
-    # Нулевая сумма
-    tx_zero = {"amount": "0", "currency": "USD"}
-    assert convert_to_rub(tx_zero, cache["USD"], "USD") == 0.0
-
-    # Валюта отсутствует в кэше (GBP). Передаем cache.get("GBP"), который вернет None.
-    tx_gbp = {"amount": "10", "currency": "GBP"}
-    assert convert_to_rub(tx_gbp, cache.get("GBP"), "GBP") is None  # <-- ИСПРАВЛЕНО ЗДЕСЬ
-
-    # Битая строка суммы
-    tx_bad = {"amount": "abc", "currency": "USD"}
-    assert convert_to_rub(tx_bad, cache["USD"], "USD") is None
-
-
-def test_save_cache_io_error(mocker):
-    """Проверяем обработку ошибки записи на диск."""
-    # Патчим os.makedirs, чтобы он выбросил ошибку доступа
-    mocker.patch('os.makedirs', side_effect=PermissionError("Access Denied"))
-
-    from src.exchange_rate import save_cache
-    save_cache({"USD": {"RUB": 90}})
-    # Проверка вывода через capsys здесь опциональна, главное - отсутствие падения теста
-
-
-def test_fetch_from_api_no_api_key(mocker):  # Используем короткое имя от плагина
-    mocker.patch.dict(os.environ, {}, clear=True)  # Стираем API_KEY из окружения
-
-    result = fetch_from_api("USD")
-    assert result is None
-
-    @patch('src.exchange_rate.fetch_from_api', return_value=None)
-    @patch('src.exchange_rate.load_cache')
-    def test_get_rates_reads_from_file(mock_load_cache, mock_fetch_api):
-        mock_load_cache.return_value = {
-            "USD": {"RUB": 95.0, "timestamp": "yesterday"}
-        }
-
-        result = get_rates("USD")
-        mock_fetch_api.assert_called_once_with("USD")
-        mock_load_cache.assert_called_once()
-        assert result == {"RUB": 95.0, "timestamp": "yesterday"}
-
-
-def test_convert_to_rub_unsupported_currency():
-    cache = {"USD": 90.0}
-    tx = {"amount": "10", "currency": "GBP"}
-    # Вызываем с двумя аргументами, передавая пустой кэш
-    assert convert_to_rub({"amount": "10", "currency": "GBP"}, {}) is None
-
-
-def test_save_cache_creates_file():
-    mock_data = {"USD": {"RUB": 90.0}}
-
-    with patch("builtins.open", mock_open()) as mocked_file:
-        with patch("os.makedirs") as mocked_makedirs:
-            with patch("json.dump") as mocked_json_dump:
-                save_cache(mock_data)
-
-                # Проверяем, что os.makedirs был вызван с правильным путем
-                mocked_makedirs.assert_called_once_with(os.path.dirname(CACHE_FILE), exist_ok=True)
-
-                # Проверяем, что open был вызван корректно
-                mocked_file.assert_called_once_with(CACHE_FILE, 'w', encoding='utf-8')
-
-                # Проверяем, что json.dump был вызван с правильными аргументами
-                mocked_json_dump.assert_called_once_with(mock_data, mocked_file(), ensure_ascii=False, indent=4)
-
-
-def test_load_cache_invalid_json(mocker):
-    # Здесь лучше использовать mock_open вместо работы с диском
-    m = mock_open(read_data="{ invalid json")
-    with patch('builtins.open', m), \
-            patch('os.path.exists', return_value=True), \
-            patch('src.exchange_rate.BASE_DIR', '/fake/path'):  # Путь неважен, т.к. open замокан
-        from src.exchange_rate import load_cache
-        result = load_cache()
-        assert result is None
-
-
-@patch('src.exchange_rate.requests.get')
-@patch('src.exchange_rate.requests.get')
-def test_fetch_from_api_http_error(self, mock_get):
-        """Сервер вернул статус ошибки (например, лимит запросов)."""
-
-        mock_response = MagicMock()
-        mock_response.status_code = 429
-        mock_get.return_value = mock_response
-        result = fetch_from_api("USD")
-        assert result is None
-        mock_get.assert_called_once()
-
-
-def test_fetch_from_api_network_exception(monkeypatch):
-    """Симулируем отсутствие интернета."""
-
-    def fake_get(*args, **kwargs):
-        # Используем встроенное исключение requests
-        raise requests.ConnectionError("Simulated connection drop")
-
-    monkeypatch.setattr('src.exchange_rate.requests.get', fake_get)
-    result = fetch_from_api("USD")
-
-    assert result is None
-
-
-def test_fetch_from_api_success(mocker, monkeypatch):
-    """ API отработал успешно -> данные вернулись + вызвался save_cache. """
-
-    # 1. Подменяем переменную окружения через правильную фикстуру
-    monkeypatch.setenv("API_KEY", "test-key")
-
-    # 2. Настраиваем ответ requests.get
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "quotes": {"USDRUB": 91.5},
-        "date": "2026-08-01"
-    }
-    mocker.patch('src.exchange_rate.requests.get', return_value=mock_response)
-
-    # 3. Блокируем чтение файла кэша на диске
-    mocker.patch('src.exchange_rate.load_cache', return_value=None)
-
-    result = fetch_from_api("USD")
-    assert result == None
-
-
-def test_get_rates_success_from_api(mocker):
-    """Сценарий А: API ответил успешно."""
-    # Патчим fetch_from_api прямо в пространстве имен, откуда импортировали
-    mocker.patch('src.exchange_rate.fetch_from_api', return_value={"RUB": 91.5})
-    result = src.exchange_rate.get_rates("USD")
-    assert result == {"RUB": 91.5}
-
-
-def test_get_rates_fallback_to_cache(mocker):
-    """Сценарий Б: API не ответил, но данные есть в локальном файле."""
-    TEST_CACHE_DATA = {
-        "USD": {"RUB": 92.5, "timestamp": "2026-08-01"},
-        "EUR": {"RUB": 100.0, "timestamp": "2026-08-01"}
-    }
-    mocker.patch('src.exchange_rate.fetch_from_api', return_value=None)
-    mocker.patch('src.exchange_rate.load_cache', return_value=TEST_CACHE_DATA)
-
-    result = src.exchange_rate.get_rates("USD")
-    assert result == {"RUB": 92.5, "timestamp": "2026-08-01"}
-
-
-def test_get_rates_no_data_everywhere(mocker):
-    """Сценарий В: Сети нет И файла кэша тоже нет."""
-    mocker.patch('src.exchange_rate.fetch_from_api', return_value=None)
-    mocker.patch('src.exchange_rate.load_cache', return_value=None)
-
-    result = src.exchange_rate.get_rates("USD")
-    assert result is None
-
-
-def test_get_rates_currency_not_in_response(mocker):
-    """Валюта запрошена, но её нет ни в API, ни в файле."""
-    mocker.patch('src.exchange_rate.fetch_from_api', return_value=None)
-    mocker.patch('src.exchange_rate.load_cache', return_value=None)
-
-    result = src.exchange_rate.get_rates("USD")
-    assert result is None
-
-
-def test_load_transactions_success(mocker, tmp_path):
-    """ Проверяем успешное чтение валидного JSON-файла. """
-    # 1. Подготовка: создаем временную папку data и файл в ней
-    temp_dir = tmp_path / "data"
-    temp_dir.mkdir()
-
-    transactions_file_ = temp_dir / "operations.json"
-
-    sample_data = [
-        {"id": 1, "amount": 100},
-        {"id": 2, "amount": 500}
-    ]
-
-    with open(transactions_file_, 'w', encoding='utf-8') as f:
-        json.dump(sample_data, f)
-
-    # КРИТИЧНОЕ ИСПРАВЛЕНИЕ ПУТИ:
-    # Патчим имя КОНСТАНТЫ внутри ТОГО МОДУЛЯ, ГДЕ ОНА ОПРЕДЕЛЕНА (src.exchange_rate)
-    mocker.patch('src.exchange_rate.load_transactions', str(load_transactions))
-    result = lt()
-    assert result == []
-
-
-def test_load_transactions_invalid_json(mocker):
-    """Проверяем обработку битого JSON (ошибка десериализации)."""
-
-    # 1. Создаем фейковые данные через mocker из pytest-mock
-    m = mocker.mock_open(read_data="{invalid json}")
-
-    # 2. Патчим open внутри src.utils с помощью ОДНОГО инструмента (mocker)
-    mocker.patch("src.utils.open", m)
-
-    # 3. Вызываем тестируемую функцию
-    result = load_transactions()
-
-    # 4. Проверяем, что функция вернула пустой список, а не упала с ошибкой
-    assert result == []
-
-
-def test_load_cache_catches_bad_json(mocker):
-    """Симулируем ситуацию, когда файл есть, но он поврежден."""
-
-    # Говорим встроенному open(), чтобы он кинул ошибку десериализации
-    def raise_json_error(*args, **kwargs):
-        raise json.JSONDecodeError("Expecting value", doc="", pos=0)
-
-    mocker.patch('builtins.open', side_effect=raise_json_error)
-    result = load_cache()
-    assert result is None
-
-
-class TestExchangeRateAPI:
-    """Тесты для модуля получения курсов валют."""
-
-    @patch('src.exchange_rate.requests.get')
-    def test_fetch_http_error(self, mock_get):
-        """Сервер вернул статус ошибки (например, лимит запросов)."""
-        mock_response = MagicMock()
-        mock_response.status_code = 429  # Too Many Requests
-        mock_get.return_value = mock_response
-        result = fetch_from_api("USD")
-        assert result is None
-
-    @patch('src.exchange_rate.requests.get')
-    def test_fetch_network_exception(self, mock_get):
-        """Нет интернета (RequestException)."""
-
-        mock_get.side_effect = Exception("Connection Error")
-        result = fetch_from_api("USD")
-        assert result is None
-
-
-    def test_fetch_saves_cache(self, monkeypatch):
-        """ Проверяем, что при успехе API вызывается сохранение в файл. """
-
-        # 1. Подменяем os.getenv с помощью фикстуры monkeypatch
-        monkeypatch.setenv("API_KEY", "test-key")
-
-        # 2. Настраиваем мок requests.get
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "quotes": {"EURRUB": 105.0},
-            "date": "2026-07-29"
-        }
-
-        def fake_get(*args, **kwargs):
-            return mock_response
-
-        monkeypatch.setattr('requests.get', fake_get)
-        result = fetch_from_api("EUR")
-        assert result == None
-
-
-@patch("src.external_api.API_KEY", None)
-def test_get_rates_no_api_key():
-    """Проверяем поведение функции, если API_KEY не задан."""
-    result = get_rates("USD")
-    assert result is None
-
+def test_fetch_from_api_no_api_key():
+    """Тест поведения функции, если в системе отсутствует API_KEY."""
+    with patch("src.exchange_rate.API_KEY", None):
+        assert exchange_rate.fetch_from_api("USD") is None
 
 
 @patch("requests.get")
-@patch("src.external_api.API_KEY", "fake_key")
-def test_get_rates_no_rub_in_response(mock_get):
-    """Проверяем поведение функции, если в ответе сервера нет ключа 'RUB'."""
-    # Симулируем успешный ответ, но без курса рубля
+def test_fetch_from_api_success(mock_get):
+    """Тест успешного запроса к API, сохранения данных в кэш и возврата результата."""
+    # Имитируем успешный JSON-ответ от сервера
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"rates": {"USD": 1.0}}  # Рубля тут нет
+    mock_response.json.return_value = {
+        "rates": {"RUB": 91.5},
+        "date": "2026-08-27"
+    }
     mock_get.return_value = mock_response
 
-    result = get_rates("USD")
-    assert result is None
+    with patch("src.exchange_rate.API_KEY", "test_key"), \
+            patch("src.exchange_rate.load_cache", return_value={}), \
+            patch("src.exchange_rate.save_cache") as mock_save:
+        result = exchange_rate.fetch_from_api("USD")
+
+        assert result == {"RUB": 91.5, "timestamp": "2026-08-27"}
+        # Проверяем, что данные ушли на запись в кэш
+        mock_save.assert_called_once_with({"USD": result})
 
 
-# 3. Тест для строки 57 (Некорректная сумма в транзакции)
-def test_convert_to_rub_invalid_amount():
-    """Проверяем поведение функции, если сумма транзакции не является числом."""
-    invalid_tx = {"amount": "не число", "currency": "USD"}
-    cache = {"USD": 90.0}
+@patch("requests.get")
+def test_fetch_from_api_server_error(mock_get):
+    """Тест поведения программы при коде ответа сервера, отличном от 200."""
+    mock_response = MagicMock()
+    mock_response.status_code = 429  # Too Many Requests (исчерпан лимит)
+    mock_get.return_value = mock_response
 
-    result = convert_to_rub(invalid_tx, cache)
-    assert result is None
+    with patch("src.exchange_rate.API_KEY", "test_key"):
+        assert exchange_rate.fetch_from_api("USD") is None
 
 
-def test_convert_to_rub_cache_is_none():
-    """Проверяем защиту функции от отсутствующего или некорректного кэша."""
-    tx = {"amount": "100", "currency": "USD"}
+@patch("requests.get", side_effect=requests.RequestException("Timeout"))
+def test_fetch_from_api_network_exception(mock_get):
+    """Тест обработки падения сети / таймаута соединения."""
+    with patch("src.exchange_rate.API_KEY", "test_key"):
+        assert exchange_rate.fetch_from_api("USD") is None
 
-    # Передаем None вместо словаря с кэшем курсов валют
-    result = convert_to_rub(tx, None)
-    assert result is None
+
+# ==========================================
+# Тесты для связующей функции get_rates
+# ==========================================
+
+def test_get_rates_from_api_first():
+    """Если API работает, get_rates должен сразу вернуть свежие данные."""
+    api_data = {"RUB": 95.0, "timestamp": "2026-08-27"}
+    with patch("src.exchange_rate.fetch_from_api", return_value=api_data):
+        assert exchange_rate.get_rates("USD") == api_data
+
+
+def test_get_rates_fallback_to_cache():
+    """Если API лежит, но данные есть в кэше — get_rates должен вытащить их из кэша."""
+    cached_data = {"EUR": {"RUB": 100.0, "timestamp": "2026-08-20"}}
+    with patch("src.exchange_rate.fetch_from_api", return_value=None), \
+            patch("src.exchange_rate.load_cache", return_value=cached_data):
+        assert exchange_rate.get_rates("EUR") == {"RUB": 100.0, "timestamp": "2026-08-20"}
+
+
+def test_get_rates_critical_error():
+    """Если сеть упала и в кэше ничего нет — возвращается None."""
+    with patch("src.exchange_rate.fetch_from_api", return_value=None), \
+            patch("src.exchange_rate.load_cache", return_value=None):
+        assert exchange_rate.get_rates("USD") is None
+
+
+# ==========================================
+# Тесты математики конвертации в рубли
+# ==========================================
+
+@pytest.mark.parametrize(
+    "tx, rate, currency, expected",
+    [
+        ({"amount": "100.50", "currency": "USD"}, 90.0, "USD", 9045.0),
+        ({"amount": 50, "currency": "EUR"}, 100.0, "EUR", 5000.0),
+        # Сумма в RUB возвращает исходное число, игнорируя переданный курс
+        ({"amount": "1500.00", "currency": "RUB"}, 1.5, "RUB", 1500.0),
+        # Если курс для не-рублей равен None, конвертация невозможна
+        ({"amount": "100", "currency": "USD"}, None, "USD", None),
+        # Битая сумма (текст вместо числа) приводит к возврату None
+        ({"amount": "broken_str", "currency": "USD"}, 90.0, "USD", None),
+        # Отсутствие поля amount приводит к возврату None
+        ({"currency": "USD"}, 90.0, "USD", None),
+    ]
+)
+def test_convert_to_rub(tx, rate, currency, expected):
+    """Параметризованный тест всех математических сценариев конвертации."""
+    assert exchange_rate.convert_to_rub(tx, rate, currency) == expected
+
+
+# ==========================================
+# Тесты для load_transactions
+# ==========================================
+
+def test_load_transactions_not_found():
+    """Тест обработки ситуации, когда файла транзакций не существует."""
+    with patch("os.path.exists", return_value=False):
+        assert exchange_rate.load_transactions() == []
+
+
+def test_load_transactions_success():
+    """Тест успешного парсинга валидного списка транзакций."""
+    mock_data = [{"amount": 100, "currency": "RUB"}]
+    m_open = mock_open(read_data=json.dumps(mock_data))
+
+    with patch("os.path.exists", return_value=True), patch("builtins.open", m_open):
+        assert exchange_rate.load_transactions() == mock_data
+
+
+def test_load_transactions_not_a_list():
+    """Тест защиты структуры данных: если в JSON лежит словарь вместо списка, возвращается пустой список."""
+    m_open = mock_open(read_data=json.dumps({"not_a_list": True}))
+
+    with patch("os.path.exists", return_value=True), patch("builtins.open", m_open):
+        assert exchange_rate.load_transactions() == []

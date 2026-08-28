@@ -1,93 +1,105 @@
-from unittest.mock import patch, MagicMock
-from src.external_api import get_rates, convert_to_rub
+from unittest.mock import MagicMock, patch
+import pytest
+import requests
+from src import external_api
 
 
-class TestExternalAPI:
+@patch("requests.get")
+def test_get_rates_success_rates(mock_get):
+    """Тест успешного запроса, когда API возвращает структуру с ключом 'rates'."""
+    # Создаем mock-ответ сервера
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "success": True,
+        "base": "USD",
+        "date": "2026-08-27",
+        "rates": {"RUB": 91.50}
+    }
+    mock_get.return_value = mock_response
 
-    @patch('src.external_api.requests.get')
-    def test_get_rates_success_standard_format(self, mock_get):
-        """Проверяем успешный ответ API со структурой 'rates' (например, Frankfurter.app)."""
+    # Подменяем API_KEY, чтобы тест не зависел от файла .env
+    with patch("src.external_api.API_KEY", "mock_api_key"):
+        result = external_api.get_rates("USD")
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "base": "EUR",
-            "rates": {"RUB": 100.5}
-        }
-        mock_get.return_value = mock_response
+        # Проверяем корректность парсинга
+        assert result == {"RUB": 91.50}
+        # Проверяем, что requests.get вызван с правильными параметрами
+        mock_get.assert_called_once_with(
+            external_api.URL,
+            headers={"apikey": "mock_api_key"},
+            params={"base": "USD", "symbols": "RUB"},
+            timeout=5
+        )
 
-        result = get_rates("EUR")
 
-        assert result == {"RUB": 100.5}
+@patch("requests.get")
+def test_get_rates_success_quotes(mock_get):
+    """Тест успешного запроса, когда API возвращает альтернативную структуру с ключом 'quotes'."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "success": True,
+        "quotes": {"RUB": 99.20}
+    }
+    mock_get.return_value = mock_response
 
-    @patch('src.external_api.requests.get')
-    def test_get_rates_http_error(self, mock_get):
-        """Если сервер вернул 429 или 500, должна вернуться None."""
-        mock_response = MagicMock()
-        mock_response.status_code = 429
-        mock_get.return_value = mock_response
+    with patch("src.external_api.API_KEY", "mock_api_key"):
+        result = external_api.get_rates("EUR")
+        assert result == {"RUB": 99.20}
 
-        result = get_rates("USD")
+
+def test_get_rates_no_api_key():
+    """Тест ситуации, когда переменная окружения API_KEY отсутствует (None или пустая)."""
+    with patch("src.external_api.API_KEY", None):
+        result = external_api.get_rates("USD")
         assert result is None
 
-    @patch('src.external_api.requests.get')
-    def test_get_rates_missing_key_in_json(self, mock_get):
-        """Если в JSON нет ключей quotes/rates или RUB внутри них."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"some_other_key": 123}
-        mock_get.return_value = mock_response
 
-        result = get_rates("USD")
+@patch("requests.get")
+def test_get_rates_server_error(mock_get):
+    """Тест поведения функции при ошибке сервера (код ответа не 200, например 401 или 429)."""
+    mock_response = MagicMock()
+    mock_response.status_code = 401  # Unauthorized / Неверный ключ
+    mock_get.return_value = mock_response
+
+    with patch("src.external_api.API_KEY", "wrong_key"):
+        result = external_api.get_rates("USD")
         assert result is None
 
-    @patch('src.external_api.requests.get')
-    def test_get_rates_network_exception(self, mock_get):
-        """Сетевой сбой (таймаут, обрыв связи)."""
-        mock_get.side_effect = Exception("Connection aborted")
 
-        result = get_rates("USD")
+@patch("requests.get")
+def test_get_rates_missing_container(mock_get):
+    """Тест ситуации, когда в ответе API вообще нет ни 'rates', ни 'quotes'."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"unexpected_json": True}
+    mock_get.return_value = mock_response
+
+    with patch("src.external_api.API_KEY", "mock_api_key"):
+        result = external_api.get_rates("USD")
         assert result is None
 
-    # --- Тесты функции конвертации (без сети) ---
 
-    def test_convert_to_rub_valid_usd(self):
-        cache = {"USD": 92.0, "EUR": 100.0}
-        tx = {"amount": "100", "currency": "USD"}
-        assert convert_to_rub(tx, cache) == 9200.0
+@patch("requests.get")
+def test_get_rates_missing_rub_key(mock_get):
+    """Тест ситуации, когда контейнер валют есть, но ключа 'RUB' внутри него нет."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "rates": {"EUR": 0.85}  # Ключа RUB нет
+    }
+    mock_get.return_value = mock_response
 
-    def test_convert_to_rub_valid_rub(self):
-        cache = {"USD": 92.0}
-        tx = {"amount": "500", "currency": "RUB"}
-        assert convert_to_rub(tx, cache) == 500.0
+    with patch("src.external_api.API_KEY", "mock_api_key"):
+        result = external_api.get_rates("USD")
+        assert result is None
 
-    def test_convert_to_rub_currency_not_in_cache(self):
-        cache = {"USD": 92.0}
-        tx = {"amount": "10", "currency": "GBP"}
-        assert convert_to_rub(tx, cache) is None
 
-    def test_convert_to_rub_invalid_amount_string(self):
-        cache = {"USD": 92.0}
-        tx = {"amount": "not_a_number", "currency": "USD"}
-        assert convert_to_rub(tx, cache) is None
-
-    def test_convert_to_rub_empty_tx_dict(self):
-        cache = {"USD": 92.0}
-        assert convert_to_rub({}, cache) is None
-
-    def test_convert_to_rub_zero_amount(self):
-        cache = {"USD": 92.0}
-        tx = {"amount": "0", "currency": "USD"}
-        assert convert_to_rub(tx, cache) == 0.0
-
-API_RESPONSE_FIXER = {
-    "success": True,
-    "date": "2026-07-27",
-    "quotes": {"USDRUB": 92.5}
-}
-
-API_RESPONSE_STANDARD = {
-    "base": "USD",
-    "date": "2026-07-27",
-    "rates": {"RUB": 92.5}
-}
+@patch("requests.get", side_effect=requests.RequestException("Сбой сети / Timeout"))
+def test_get_rates_network_exception(mock_get):
+    """Тест обработки сетевых исключений (таймаут, потеря связи и т.д.)."""
+    with patch("src.external_api.API_KEY", "mock_api_key"):
+        # Функция должна перехватить Exception, вывести ошибку в принт и вернуть None, а не упасть
+        result = external_api.get_rates("USD")
+        assert result is None

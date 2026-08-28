@@ -1,26 +1,19 @@
 from typing import Any, Dict, Generator, Iterator, List
 
-# Импортируем тестовые данные (убедитесь, что путь верный для вашей структуры)
 from data.data_dict_generators import transactions
 
 
 # 1. Генератор банковских карт
-def card_number_generator(
-    start_val: int, end_val: int
-) -> Generator[str, None, None]:
+def card_number_generator(start_val: int, end_val: int) -> Generator[str, None, None]:
     """Генератор номеров карт с начальным значением start и конечным значением end"""
     for current_num in range(start_val, end_val + 1):
         card_number = f"{current_num:016d}"
-        card_num = " ".join(
-            [card_number[i : i + 4] for i in range(0, len(card_number), 4)]
-        )
+        card_num = " ".join([card_number[i: i + 4] for i in range(0, len(card_number), 4)])
         yield card_num
 
 
 # 2. Функция фильтр
-def filter_by_currency(
-    transactions: List[Dict[str, Any]], currency: str
-) -> Iterator[Dict[str, Any]]:
+def filter_by_currency(transactions: List[Dict[str, Any]], currency: str) -> Iterator[Dict[str, Any]]:
     """Функция фильтрующая словарь с транзакциями по currency"""
     for x in transactions:
         if (
@@ -32,9 +25,7 @@ def filter_by_currency(
 
 
 # 3. Генератор транзакций
-def transaction_descriptions(
-    transactions: List[Dict[str, Any]]
-) -> Iterator[str]:
+def transaction_descriptions(transactions: List[Dict[str, Any]]) -> Iterator[str]:
     """Генератор выводящий данные из словаря транзакций по 'description'."""
     for t in transactions:
         if "description" in t:

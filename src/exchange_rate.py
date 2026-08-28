@@ -1,15 +1,32 @@
 import json
+import logging
 import os
+from pathlib import Path
 from typing import Dict, List, Optional, TypedDict, cast
-from src.utils import load_transactions
+
 import requests
 from dotenv import load_dotenv
 
+# === НАСТРОЙКА ЛОГИРОВАНИЯ ===
+logger = logging.getLogger("exchange_rate")
+logger.setLevel(logging.DEBUG)
+
+# Вычисляем путь к папке логов относительно корня проекта
+BASE_DIR = Path(__file__).resolve().parent.parent
+LOG_DIR = os.path.join(BASE_DIR, "logs")
+os.makedirs(LOG_DIR, exist_ok=True)  # Автоматически создаем папку logs, если её нет
+
+log_file_path = os.path.join(LOG_DIR, "exchange_rate.log")
+file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
+file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+file_handler.setFormatter(file_formatter)
+logger.addHandler(file_handler)
+
+# === ОСТАЛЬНЫЕ НАСТРОЙКИ ПУТЕЙ ===
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 URL = "https://api.apilayer.com/exchangerates_data/latest"
 
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 CACHE_FILE = os.path.join(BASE_DIR, "data", "exchange_rates.json")
 TRANSACTIONS_FILE = os.path.join(BASE_DIR, "data", "operations.json")
 
@@ -43,74 +60,80 @@ def load_cache() -> Optional[Dict[str, RateData]]:
 
 
 def fetch_from_api(base_currency: str) -> Optional[RateData]:
-    """Запрашивает свежий курс у сайта."""
+    """Запрашивает свежий курс у сайта и логирует HTTP-статусы ответов."""
     if not API_KEY:
-        print("[ОШИБКА] Переменная окружения API_KEY не найдена!")
+        logger.error("Переменная окружения API_KEY не найдена!")
         return None
 
     try:
         response = requests.get(
-            URL, headers={"apikey": API_KEY}, params={"base": base_currency, "symbols": "RUB"}, timeout=5
+            URL,
+            headers={"apikey": API_KEY},
+            params={"base": base_currency, "symbols": "RUB"},
+            timeout=15,  # Увеличен до 15 секунд, чтобы избежать Read timed out
         )
 
-        if response.status_code != 200:
-            print(f"[DEBUG] API статус: {response.status_code} для {base_currency}")
+        # === ЛОГИРОВАНИЕ КОДОВ ОТВЕТА ===
+        if response.status_code == 200:
+            data = response.json()
+            rates_container = data.get("rates") or data.get("quotes", {})
+            rub_rate_raw = rates_container.get("RUB")
+            date_str = data.get("date")
+
+            if rub_rate_raw is None or date_str is None:
+                logger.error(f"API вернул статус 200, но структура JSON повреждена для {base_currency}")
+                return None
+
+            result: RateData = {"RUB": float(rub_rate_raw), "timestamp": date_str}
+
+            # Обновление кэша
+            cache_to_save = {}
+            existing_cache = load_cache()
+            if isinstance(existing_cache, dict):
+                cache_to_save.update(existing_cache)
+            cache_to_save[base_currency] = result
+            save_cache(cache_to_save)
+
+            logger.info(f"Данные для {base_currency} успешно загружены С САЙТА. Код ответа: {response.status_code}")
+            return result
+
+        # Если код НЕ 200 (например, 401, 429, 500)
+        else:
+            logger.error(
+                f"Ошибка сервера APILayer! Курс для {base_currency} не получен. "
+                f"Код статуса HTTP: {response.status_code} ({response.reason})"
+            )
             return None
 
-        data = response.json()
-
-        # Используем .get() с дефолтами, чтобы избежать TypeError при обращении к None
-        rates_container = data.get("rates") or data.get("quotes", {})
-
-        rub_rate_raw = rates_container.get("RUB")
-        date_str = data.get("date")
-
-        if rub_rate_raw is None or date_str is None:
-            return None
-
-        result: RateData = {"RUB": float(rub_rate_raw), "timestamp": date_str}
-
-        cache_to_save = {}
-        existing_cache = load_cache()
-        if isinstance(existing_cache, dict):
-            cache_to_save.update(existing_cache)
-
-        cache_to_save[base_currency] = result
-        save_cache(cache_to_save)
-
-        return result
-
-    except (requests.RequestException, Exception) as e:
-
-        print(f"[INFO] Нет подключения к сети ({e}). Попробуем найти данные в файле.")
-
+    except requests.exceptions.Timeout as e:
+        logger.info(f"Превышено время ожидания ответа от сервера (Timeout 15s): {e}. Переходим на кэш.")
         return None
-
-    except (ValueError, KeyError) as e:
-
-        print(f"[ОШИБКА СЕТИ/ДАННЫХ] При получении курса {base_currency}: {e}")
-
+    except (requests.RequestException, Exception) as e:
+        logger.info(f"Сбой сетевого соединения ({e}). Будет произведена попытка чтения локального кэша.")
         return None
 
 
 def get_rates(base_currency: str) -> Optional[RateData]:
+    """Возвращает курс валюты, записывая точный источник данных в лог-файл."""
     fresh_data = fetch_from_api(base_currency)
     if fresh_data:
         return fresh_data
 
     cached_data = load_cache()
     if cached_data and base_currency in cached_data:
-        print(
-            f"[INFO] Используем закешированный курс для {base_currency} от"
-            f" {cached_data[base_currency].get('timestamp')}"
+        # Логируем чтение из файла
+        logger.warning(
+            f"Сеть недоступна. Данные для {base_currency} взяты ИЗ ЛОКАЛЬНОГО"
+            f" ФАЙЛА-КЭША от {cached_data[base_currency].get('timestamp')}"
         )
         return cached_data[base_currency]
 
-    print(f"[КРИТИЧЕСКАЯ ОШИБКА] Курс для {base_currency} не найден ни в сети, ни в кэше.")
+    logger.critical(f"Курс для {base_currency} не найден ни в сети, ни в кэше.")
     return None
 
+    # Строгая структура транзакции для mypy
 
-# Строгая структура транзакции для mypy
+
 class Transaction(TypedDict, total=False):
     amount: str | int | float
     currency: str
@@ -143,22 +166,24 @@ def _safe_parse_amount(tx: Transaction) -> Optional[float]:
         return None
     try:
         return float(amount_str)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
 
-def load_transactions_() -> List[Transaction]:
-    """Загружает список транзакций из JSON-файла."""
+def load_transactions() -> List[Transaction]:
+    """Загружает список транзакций из правильного файла JSON."""
+    # ДОБАВЛЯЕМ ДЕБАГ-ВЫВОД:
+    print(f"[DEBUG] Python ищет файл тут: {os.path.abspath(TRANSACTIONS_FILE)}")
+
+    if not os.path.exists(TRANSACTIONS_FILE):
+        print(f"[ОШИБКА] Файл отсутствует по пути: {TRANSACTIONS_FILE}")
+        return []
     try:
-        with open(load_transactions, encoding="utf-8") as f:
+        with open(TRANSACTIONS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # Убеждаемся, что вернулся именно список словарей
             if isinstance(data, list):
                 return cast(List[Transaction], data)
             return []
-    except FileNotFoundError:
-        # Файл еще не создан — это штатная ситуация
-        return []
     except (OSError, json.JSONDecodeError) as e:
         print(f"[ОШИБКА] Транзакции повреждены или не читаются: {e}")
         return []

@@ -51,7 +51,7 @@ def test_read_excel_file_not_found(mock_read_excel):
     assert result == []
 
 
-# 3. Тест для блока __main__ (строки 29-38), использующий точный путь
+# 3. Тест для блока __main__
 @patch("pandas.read_excel")
 @patch("pandas.read_csv")
 def test_main_block_output(mock_read_csv, mock_read_excel, capsys):

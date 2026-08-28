@@ -1,25 +1,65 @@
 import pytest
-
 from src.widget import get_date, mask_account_card
 
 
-def test_get_date_(test_get_date: dict) -> None:
-    """Проверка правильности преобразования даты"""
-    for data in test_get_date:
-        iso_date = data["iso_date"]
-        required_date = data["required_date"]
-        assert get_date(iso_date) == required_date
+# ==========================================
+# Тесты для функции mask_account_card
+# ==========================================
+
+@pytest.mark.parametrize(
+    "input_data, expected_result",
+    [
+        # Стандартные карты с пробелами и без
+        ("Visa Platinum 1234 5678 9012 3456", ("Visa Platinum", "1234567890123456")),
+        ("Mastercard 1234567890123456", ("Mastercard", "1234567890123456")),
+        # Банковский счет
+        ("Счет 12345678901234567890", ("Счет", "12345678901234567890")),
+        # Карты со сложными названиями и пробелами по краям
+        ("  мир классическая 5555 6666  ", ("мир классическая", "55556666")),
+        # Неожиданная структура (строка без цифр на конце)
+        ("ТолькоТекст", ("ТолькоТекст", "")),
+        ("", ("", "")),
+    ]
+)
+def test_mask_account_card(input_data, expected_result):
+    """Тест разделения текстовой части и цифрового номера карты/счета."""
+    assert mask_account_card(input_data) == expected_result
 
 
-def test_get_date_invalid_format() -> None:
-    """Проверка на ошибку не правильного ввода даты"""
-    # Проверяем, что некорректная строка вызывает ошибку
-    with pytest.raises(ValueError):
-        raise ValueError("Неверное значение")
-    get_date("не-дата")
+# ==========================================
+# Тесты для функции get_date
+# ==========================================
+
+@pytest.mark.parametrize(
+    "date_input, expected_date",
+    [
+        # Полный формат ISO с миллисекундами
+        ("2025-12-31T23:59:59.999999", "31.12.2025"),
+        # ISO с буквой Z (Zulu time) на конце
+        ("2026-04-02T18:35:29Z", "02.04.2026"),
+        # Обычный формат даты и времени
+        ("2024-01-15T10:00:00", "15.01.2024"),
+        # Только дата
+        ("2023-08-27", "27.08.2023"),
+    ]
+)
+def test_get_date_success(date_input, expected_date):
+    """Тест успешного парсинга поддерживаемых форматов дат."""
+    assert get_date(date_input) == expected_date
 
 
-def test_mask_account_card(test_mask_account_card_data: dict) -> None:
-    """Проверка правильности отделения текста от цифр"""
-    for account_card, expected in test_mask_account_card_data:
-        assert mask_account_card(account_card) == expected
+@pytest.mark.parametrize(
+    "invalid_input, expected_output",
+    [
+        # Неподдерживаемый или некорректный формат строки
+        ("27-08-2026", "Неверный формат даты (27-08-2026)"),
+        ("просто текст", "Неверный формат даты (просто текст)"),
+        # Передача пустых значений или не строк
+        ("", "Некорректная дата"),
+        (None, "Некорректная дата"),
+        (12345, "Некорректная дата"),
+    ]
+)
+def test_get_date_errors(invalid_input, expected_output):
+    """Тест обработки ошибочных, пустых или невалидных значений дат."""
+    assert get_date(invalid_input) == expected_output
