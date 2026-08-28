@@ -2,7 +2,9 @@ import pytest
 
 from data.data_dict_generators import short_data, transactions, transactions_cur
 from src.generators import card_number_generator, filter_by_currency, transaction_descriptions
-
+import sys
+import runpy
+from pathlib import Path
 
 def test_transaction_descriptions_diff_length_data() -> None:
     """Проверка функции, что корректно обрабатывает списки различной длины"""
