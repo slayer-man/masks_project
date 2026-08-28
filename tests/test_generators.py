@@ -85,3 +85,43 @@ def test_filter_by_currency_empty_list() -> None:
     generator = filter_by_currency([], "USD")
     with pytest.raises(StopIteration):
         next(generator)
+
+
+import sys
+import runpy
+from types import ModuleType
+from pathlib import Path
+
+def test_generators_main_block_output(capsys):
+    """Тестирует запуск блока __main__ в файле generators.py с пустыми данными."""
+
+    # 1. Находим точный путь к файлу src/generators.py
+    current_dir = Path(__file__).resolve().parent
+    generators_script_path = current_dir.parent / "src" / "generators.py"
+
+    # 2. Создаем фейковый пустой модуль для имитации data.data_dict_generators
+    fake_module = ModuleType("data.data_dict_generators")
+    fake_module.transactions = []  # Передаем пустой список
+
+    # 3. Кладём фейковый модуль в глобальный кэш Python
+    sys.modules["data.data_dict_generators"] = fake_module
+
+    # 4. Полностью очищаем старый кэш самого генератора
+    if "src.generators" in sys.modules:
+        del sys.modules["src.generators"]
+
+    try:
+        # 5. Запускаем файл как главное приложение
+        runpy.run_path(str(generators_script_path), run_name="__main__")
+    finally:
+        # Обязательно возвращаем системный кэш в исходное состояние после теста
+        if "data.data_dict_generators" in sys.modules:
+            del sys.modules["data.data_dict_generators"]
+
+    # 6. Перехватываем вывод в консоли
+    captured = capsys.readouterr()
+
+    # 7. Проверяем, что заголовки тестов вывелись на экран
+    assert "--- Тест генератора карт ---" in captured.out
+    assert "--- Тест фильтра валюты ---" in captured.out
+    assert "--- Тест описания транзакций ---" in captured.out

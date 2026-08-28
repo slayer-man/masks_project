@@ -1,35 +1,48 @@
 import re
 from datetime import datetime
 
-
-def mask_account_card(account_card: str) -> tuple:
-    """Функция отделения текста от цифр"""
-
-    if "Счет" in account_card:
-        account_number = re.findall(r"\d+", account_card)
-        account_text = re.findall(r"[a-zA-Zа-яА-ЯёЁ]+", account_card)
-        account_str = " ".join(account_number)
-        account_text_str = " ".join(account_text)
-        return account_text_str, account_str
-
-    else:
-        card_numbers = re.findall(r"\d+", account_card)
-        card_text = re.findall(r"[a-zA-Zа-яА-ЯёЁ]+", account_card)
-        card_number_str = " ".join(card_numbers)
-        card_text_str = " ".join(card_text)
-        return card_text_str, card_number_str
+# Переносим форматы внутрь функций или делаем их скрытыми (PEP 8)
+_DATE_FORMATS = ["%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"]
 
 
-formats = ["%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"]
+def mask_account_card(account_card: str) -> tuple[str, str]:
+    """Отделяет текстовое название карты или счета от числового номера.
+
+    Гарантирует корректное разделение, даже если в названии есть пробелы.
+    """
+    # Очищаем строку от лишних пробелов по краям
+    account_card = account_card.strip()
+
+    # Регулярное выражение ищет группу цифр в самом конце строки (допускаются пробелы внутри номера)
+    match = re.search(r"^(.*?)\s*([\d\s]+)$", account_card)
+
+    if match:
+        text_part = match.group(1).strip()
+        # Удаляем пробелы из самого номера, чтобы вернуть чистую строку цифр
+        number_part = match.group(2).replace(" ", "")
+        return text_part, number_part
+
+    # Если структура неожиданная, возвращаем как есть
+    return account_card, ""
 
 
 def get_date(date_string: str) -> str:
-    """Функция преобразования даты из ISO в dd/mm/yyyy"""
-    for fmt in formats:
+    """Преобразует строку даты из формата ISO (или похожих) в формат
+
+    'dd.mm.yyyy'.
+    """
+    if not date_string or not isinstance(date_string, str):
+        return "Некорректная дата"
+
+    # Убираем символ Z (Zulu time) для совместимости
+    clean_date = date_string.replace("Z", "")
+
+    for fmt in _DATE_FORMATS:
         try:
-            date_obj = datetime.strptime(date_string.replace("Z", ""), fmt)
+            date_obj = datetime.strptime(clean_date, fmt)
             return date_obj.strftime("%d.%m.%Y")
         except ValueError:
             continue
-    print("Неподдерживаемый формат даты: ")
-    return date_string
+
+    # Вместо print возвращаем строку-оповещение, чтобы main.py мог корректно её отобразить
+    return f"Неверный формат даты ({date_string})"

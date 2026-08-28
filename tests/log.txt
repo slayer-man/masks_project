@@ -151,3 +151,55 @@ TypeError: unsupported operand type(s) for +: 'int' and 'str'
 
 [2026-07-22 00:37:41] Функция 'my_function' вызвана.
 [2026-07-22 00:37:41] Функция 'my_function' вернула: 15
+[2026-08-21 23:01:52] Функция 'my_function' вызвана.
+[2026-08-21 23:01:52] Функция 'my_function' вернула: 15
+[2026-08-21 23:01:52] Функция 'my_function' вызвана.
+[2026-08-21 23:01:52] Ошибка в 'my_function': TypeError: unsupported operand type(s) for +: 'int' and 'str'
+Аргументы: (5, 'A'), {}
+Traceback (most recent call last):
+  File "D:\Python\Projects\masks_project\src\decorators.py", line 35, in wrapper
+    res = func(*args, **kwargs)
+  File "D:\Python\Projects\masks_project\src\decorators.py", line 61, in my_function
+    return x + y
+           ~~^~~
+TypeError: unsupported operand type(s) for +: 'int' and 'str'
+
+[2026-08-21 23:03:43] Функция 'my_function' вызвана.
+[2026-08-21 23:03:43] Функция 'my_function' вернула: 15
+[2026-08-21 23:03:43] Функция 'my_function' вызвана.
+[2026-08-21 23:03:43] Ошибка в 'my_function': TypeError: unsupported operand type(s) for +: 'int' and 'str'
+Аргументы: (5, 'A'), {}
+Traceback (most recent call last):
+  File "D:\Python\Projects\masks_project\src\decorators.py", line 35, in wrapper
+    res = func(*args, **kwargs)
+  File "D:\Python\Projects\masks_project\src\decorators.py", line 61, in my_function
+    return x + y
+           ~~^~~
+TypeError: unsupported operand type(s) for +: 'int' and 'str'
+
+[2026-08-21 23:08:42] Функция 'my_function' вызвана.
+[2026-08-21 23:08:42] Функция 'my_function' вернула: 15
+[2026-08-21 23:08:42] Функция 'my_function' вызвана.
+[2026-08-21 23:08:42] Ошибка в 'my_function': TypeError: unsupported operand type(s) for +: 'int' and 'str'
+Аргументы: (5, 'A'), {}
+Traceback (most recent call last):
+  File "D:\Python\Projects\masks_project\src\decorators.py", line 35, in wrapper
+    res = func(*args, **kwargs)
+  File "D:\Python\Projects\masks_project\src\decorators.py", line 61, in my_function
+    return x + y
+           ~~^~~
+TypeError: unsupported operand type(s) for +: 'int' and 'str'
+
+[2026-08-27 23:40:19] Функция 'my_function' вызвана.
+[2026-08-27 23:40:19] Функция 'my_function' вернула: 15
+[2026-08-27 23:40:19] Функция 'my_function' вызвана.
+[2026-08-27 23:40:19] Ошибка в 'my_function': TypeError: unsupported operand type(s) for +: 'int' and 'str'
+Аргументы: (5, 'A'), {}
+Traceback (most recent call last):
+  File "D:\Python\Projects\Masks_Project\src\decorators.py", line 35, in wrapper
+    res = func(*args, **kwargs)
+  File "D:\Python\Projects\Masks_Project\src\decorators.py", line 61, in my_function
+    return x + y
+           ~~^~~
+TypeError: unsupported operand type(s) for +: 'int' and 'str'
+
